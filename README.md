@@ -25,11 +25,23 @@
 
 ### AI Playlist Generator :robot:
 
+Intelligent playlist generation with **privacy-first design** - no data leaves your computer.
+
   - **Last.fm Radio** - Generate playlists from similar artists
   - **AI Mood Playlists** - Cluster your library into mood-based playlists using LLM (Claude, LM Studio, Ollama)
-  - **Audio Feature Clusters** - Offline clustering using metadata or librosa analysis
-  - **Autoplay** - Automatically queue similar tracks when queue ends (100% offline)
+  - **Audio Feature Clusters** - Offline clustering using metadata tags or librosa analysis
+  - **Autoplay** - Automatically queue similar tracks when queue ends (100% offline, zero API calls)
   - See [IMPROVEMENTS.md](IMPROVEMENTS.md) for details
+
+### Privacy-First Design :lock:
+
+This fork prioritizes your privacy:
+
+  - ✅ **Autoplay**: 100% offline library matching - zero external API calls
+  - ✅ **Audio Clustering**: Uses local metadata tags or librosa - no Spotify features
+  - ✅ **Library-First**: All playlist generation works with your local library
+  - ✅ **No Data Leaks**: Your listening history stays on your computer
+  - See [SPOTIFY_DEPENDENCIES_AUDIT.md](SPOTIFY_DEPENDENCIES_AUDIT.md) for complete transparency
 
 
 ## Download and Install :dizzy:
