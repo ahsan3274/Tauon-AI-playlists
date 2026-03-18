@@ -1,4 +1,3 @@
-
 <img src="https://github.com/Taiko2k/Tauon/assets/17271572/8ad864c0-dbda-45c2-ac81-e00fbff03c32" height="100px" >
 
 ## Tauon
@@ -24,6 +23,13 @@
   - Built-in topchart generator.
   - **Extract archives** and import your music downloads in **one click**! :zap:
 
+### AI Playlist Generator :robot:
+
+  - **Last.fm Radio** - Generate playlists from similar artists (includes collaboration tracks!)
+  - **AI Mood Playlists** - Cluster your library into mood-based playlists using LLM (Claude, LM Studio, Ollama)
+  - **Audio Feature Clusters** - Offline clustering using Spotify audio features (danceability, energy, valence)
+  - See [IMPROVEMENTS.md](IMPROVEMENTS.md) for details
+
 
 ## Download and Install :dizzy:
 
@@ -32,6 +38,10 @@
 ### macOS
 
 For macOS DMG see the [releases](https://github.com/Taiko2k/TauonMusicBox/releases) page.
+
+**This fork:** Install the custom AI-enabled build from [Tauon-AI.dmg](https://github.com/ahsan3274/Tauon-AI-playlists/releases) (includes all AI playlist features).
+
+See [BUILD_MACOS_APP.md](BUILD_MACOS_APP.md) for building your own signed app.
 
 ### Windows
 
