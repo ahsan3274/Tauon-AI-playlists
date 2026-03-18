@@ -1,6 +1,6 @@
 <img src="https://github.com/Taiko2k/Tauon/assets/17271572/8ad864c0-dbda-45c2-ac81-e00fbff03c32" height="100px" >
 
-## Tauon
+## Tauon - AI (WORK IN PROGRESS)
 
 **A music player for the desktop.** Designed to be powerful and streamlined, putting the user in control of their music collection.
 
