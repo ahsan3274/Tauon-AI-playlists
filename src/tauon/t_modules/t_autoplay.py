@@ -57,9 +57,10 @@ class AutoplayManager:
         if now - self.last_trigger_time < AUToplay_COOLDOWN:
             return False
         
-        # Check queue length
+        # Check queue length (use preference if available)
+        threshold = getattr(self.tauon.prefs, 'autoplay_threshold', AUToplay_THRESHOLD)
         tracks_remaining = len(self.pctl.track_queue) - self.pctl.queue_step - 1
-        if tracks_remaining > AUToplay_THRESHOLD:
+        if tracks_remaining > threshold:
             return False
         
         # Check if we're already at max queue size
@@ -351,12 +352,13 @@ def setup_autoplay(tauon) -> AutoplayManager:
     """Initialize and return autoplay manager."""
     manager = AutoplayManager(tauon)
     
-    # Load preferences (add these to t_prefs.py)
-    # prefs.spotify_autoplay = False
-    # prefs.lastfm_autoplay = True
+    # Load preferences
+    manager.enabled = getattr(tauon.prefs, 'autoplay_enable', False)
+    manager.use_spotify = getattr(tauon.prefs, 'autoplay_use_spotify', True) and hasattr(tauon.pctl, 'spot') and tauon.pctl.spot
+    manager.use_lastfm = getattr(tauon.prefs, 'autoplay_use_lastfm', True)
+    manager.fallback_library = getattr(tauon.prefs, 'autoplay_use_library', True)
     
-    manager.enabled = True  # Or load from prefs
-    manager.use_spotify = hasattr(tauon.pctl, 'spot') and tauon.pctl.spot
-    manager.use_lastfm = True
+    # Store reference to manager in tauon for updating enabled state
+    tauon.autoplay_manager = manager
     
     return manager

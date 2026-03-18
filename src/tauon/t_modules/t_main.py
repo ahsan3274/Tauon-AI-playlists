@@ -3573,6 +3573,8 @@ class PlayerCtl:
 		# ── Autoplay Trigger ─────────────────────────────────────
 		# Trigger autoplay when queue is ending (but not on startup/repeat)
 		if not dry and not end and not force and self.tauon.autoplay and self.tauon.autoplay.enabled:
+			# Sync enabled state from preferences (in case it changed in UI)
+			self.tauon.autoplay.enabled = getattr(self.tauon.prefs, 'autoplay_enable', False)
 			if self.tauon.autoplay.should_trigger_autoplay():
 				queued = self.tauon.autoplay.trigger_autoplay()
 				if queued > 0:
@@ -6149,6 +6151,7 @@ class Tauon:
 		self.text_ai_gen_moods:       TextBox2 = TextBox2(tauon=self)
 		self.text_local_llm_url:      TextBox2 = TextBox2(tauon=self)
 		self.text_local_llm_model:    TextBox2 = TextBox2(tauon=self)
+		self.text_autoplay_threshold: TextBox2 = TextBox2(tauon=self)
 
 		self.text_sat_url:      TextBox2 = TextBox2(tauon=self)
 		self.text_sat_playlist: TextBox2 = TextBox2(tauon=self)
@@ -26558,6 +26561,52 @@ class Over:
 				prefs.lastfm_gen_limit = int(tauon.text_lastfm_gen_limit.text.strip())
 			except ValueError:
 				prefs.lastfm_gen_limit = 60
+
+			# ── Autoplay Settings ────────────────────────────────────
+			y += round(25 * gui.scale)
+			ddt.text((x, y), "Autoplay", colours.box_sub_text, 213)
+			y += round(15 * gui.scale)
+
+			# Enable/Disable toggle
+			if _autoplay_available:
+				prefs.autoplay_enable = self.toggle_square(
+					x, y, prefs.autoplay_enable,
+					_("Enable Autoplay (Spotify-like)"))
+				y += round(25 * gui.scale)
+
+				if prefs.autoplay_enable:
+					# Threshold setting
+					ddt.text((x + 0 * gui.scale, y), _("Trigger when < N tracks left"), colours.box_text_label, 10)
+					y += round(15 * gui.scale)
+					rect1 = (x + 0 * gui.scale, y, field_width, round(16 * gui.scale))
+					self.fields.add(rect1)
+					if self.coll(rect1) and (self.click or inp.level_2_right_click):
+						self.account_text_field = 17
+					ddt.bordered_rect(rect1, colours.box_background, colours.box_text_border, round(1 * gui.scale))
+					tauon.text_autoplay_threshold.text = str(getattr(prefs, 'autoplay_threshold', 2))
+					tauon.text_autoplay_threshold.draw(
+						x + round(3 * gui.scale), y, colours.box_input_text, self.account_text_field == 17,
+						width=rect1[2] - 6 * gui.scale, click=self.click)
+					try:
+						val = int(tauon.text_autoplay_threshold.text.strip())
+						if val < 1:
+							val = 1
+						elif val > 10:
+							val = 10
+						prefs.autoplay_threshold = val
+					except (ValueError, AttributeError):
+						prefs.autoplay_threshold = 2
+
+					y += round(18 * gui.scale)
+					ddt.text(
+						(x + 0 * gui.scale, y, field_width, 260 * gui.scale),
+						_("Auto-queues similar tracks when ending"),
+						colours.box_text_label, 9, max_w=260 * gui.scale)
+				else:
+					y += round(25 * gui.scale)
+			else:
+				ddt.text((x, y), _("Autoplay not available"), colours.box_text_label, 10)
+				y += round(20 * gui.scale)
 
 		if self.account_view == 2:
 

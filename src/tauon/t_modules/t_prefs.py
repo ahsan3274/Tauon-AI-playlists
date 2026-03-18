@@ -384,6 +384,7 @@ class Prefs:
 	autoplay_use_spotify: bool = True
 	autoplay_use_lastfm: bool = True
 	autoplay_use_library: bool = True
+	autoplay_threshold: int = 2  # Trigger when < N tracks left
 
 	artist_list_sort_mode = "alpha"
 
