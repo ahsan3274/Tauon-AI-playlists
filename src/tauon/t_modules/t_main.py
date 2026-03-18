@@ -114,6 +114,14 @@ try:
 except ImportError:
 	_playlist_gen_available = False
 	logging.warning("t_playlist_gen not found — auto-playlist feature disabled")
+
+try:
+	from tauon.t_modules import t_autoplay
+	_autoplay_available = True
+except ImportError:
+	_autoplay_available = False
+	logging.warning("t_autoplay not found — autoplay feature disabled")
+
 from tauon.t_modules.t_db_migrate import (  # noqa: E402
 	database_migrate,
 	migrate_star_store_71,
@@ -3562,6 +3570,15 @@ class PlayerCtl:
 			self.decode_time = -2
 			return None
 
+		# ── Autoplay Trigger ─────────────────────────────────────
+		# Trigger autoplay when queue is ending (but not on startup/repeat)
+		if not dry and not end and not force and self.tauon.autoplay and self.tauon.autoplay.enabled:
+			if self.tauon.autoplay.should_trigger_autoplay():
+				queued = self.tauon.autoplay.trigger_autoplay()
+				if queued > 0:
+					self.tauon.show_message(f"Autoplay: queued {queued} similar tracks", mode="info")
+		# ──────────────────────────────────────────────────────────
+
 		# Temporary Workaround for UI block causing unwanted dragging
 		if not dry:
 			self.tauon.quick_d_timer.set()
@@ -6195,6 +6212,12 @@ class Tauon:
 		self.enable_librespot = shutil.which("librespot")
 
 		self.MenuItem = MenuItem
+
+		# Autoplay manager (Spotify-like autoplay)
+		if _autoplay_available:
+			self.autoplay: t_autoplay.AutoplayManager = t_autoplay.setup_autoplay(self)
+		else:
+			self.autoplay = None
 
 		self.chrome: Chrome | None = None
 		self.chrome_menu: Menu | None = None

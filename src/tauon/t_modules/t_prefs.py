@@ -379,6 +379,12 @@ class Prefs:
 
 	scrobble_hold: bool = False
 
+	# Autoplay preferences (Spotify-like autoplay)
+	autoplay_enable: bool = False
+	autoplay_use_spotify: bool = True
+	autoplay_use_lastfm: bool = True
+	autoplay_use_library: bool = True
+
 	artist_list_sort_mode = "alpha"
 
 	phazor_device_selected = "Default"
