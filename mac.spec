@@ -23,9 +23,19 @@ libs = [
 ]
 
 lib_paths = [(f"{prefix}/lib/{lib}", ".") for lib in libs]
-x64_path   = f"build/lib.macosx-13.0-x86_64-cpython-{python_ver_dotless}/phazor.cpython-{python_ver_dotless}-darwin.so"
-arm64_path = f"build/lib.macosx-15.0-arm64-cpython-{python_ver_dotless}/phazor.cpython-{python_ver_dotless}-darwin.so"
-phazor_path = x64_path if Path(x64_path).exists() else arm64_path
+
+# Dynamically find phazor extension
+build_dir = Path("build")
+phazor_path = None
+if build_dir.exists():
+	for d in build_dir.iterdir():
+		if d.is_dir() and d.name.startswith("lib.macosx"):
+			candidate = d / f"phazor.cpython-{python_ver_dotless}-darwin.so"
+			if candidate.exists():
+				phazor_path = str(candidate)
+				break
+if not phazor_path or not Path(phazor_path).exists():
+	raise RuntimeError(f"Could not find phazor extension in build directory")
 
 # Optional: macOS Now Playing helper app (built by src/nowplaying/build_app.sh)
 nowplaying_app_src = Path("src/nowplaying/build/TauonNowPlaying.app")
@@ -43,10 +53,9 @@ a = Analysis(
 	datas=[
 		(certifi.where(), "certifi"),
 		("src/tauon/assets", "assets"),
-		("src/tauon/locale", "locale"),
+		("locale", "locale"),
 		("src/tauon/theme", "theme"),
 		("src/tauon/templates", "templates"),
-		("lrclib-solver", "."),
 		*nowplaying_datas,
 	],
 	hiddenimports=[

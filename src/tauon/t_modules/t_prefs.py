@@ -359,6 +359,18 @@ class Prefs:
 	use_libre_fm: bool = False
 	back_restarts: bool = False
 
+	# ── Playlist Generator ──────────────────────────────
+	lastfm_gen_api_key: str = ""   # Last.fm API key
+	ai_gen_api_key: str    = ""    # Anthropic API key
+	ai_gen_moods: int      = 6     # number of mood clusters
+	lastfm_gen_seed: str   = ""    # default seed artist
+	lastfm_gen_limit: int  = 60    # max tracks per radio playlist
+
+	# Local LLM settings
+	use_local_llm: bool    = False  # Use local LLM instead of API
+	local_llm_url: str     = "http://localhost:1234/v1/chat/completions"
+	local_llm_model: str   = ""     # Model name (optional, leave blank for default)
+
 	old_playlist_box_position = 0
 	listenbrainz_url = ""
 	maloja_enable: bool = False

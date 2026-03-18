@@ -106,6 +106,14 @@ builtins._ = lambda x: x
 
 from tauon.t_modules import t_topchart  # noqa: E402
 from tauon.t_modules.t_config import Config  # noqa: E402
+
+# Playlist generator
+try:
+	from tauon.t_modules import t_playlist_gen
+	_playlist_gen_available = True
+except ImportError:
+	_playlist_gen_available = False
+	logging.warning("t_playlist_gen not found — auto-playlist feature disabled")
 from tauon.t_modules.t_db_migrate import (  # noqa: E402
 	database_migrate,
 	migrate_star_store_71,
@@ -6116,6 +6124,14 @@ class Tauon:
 
 		self.text_maloja_url: TextBox2 = TextBox2(tauon=self)
 		self.text_maloja_key: TextBox2 = TextBox2(tauon=self)
+
+		self.text_lastfm_gen_api_key: TextBox2 = TextBox2(tauon=self)
+		self.text_ai_gen_api_key:     TextBox2 = TextBox2(tauon=self)
+		self.text_lastfm_gen_seed:    TextBox2 = TextBox2(tauon=self)
+		self.text_lastfm_gen_limit:   TextBox2 = TextBox2(tauon=self)
+		self.text_ai_gen_moods:       TextBox2 = TextBox2(tauon=self)
+		self.text_local_llm_url:      TextBox2 = TextBox2(tauon=self)
+		self.text_local_llm_model:    TextBox2 = TextBox2(tauon=self)
 
 		self.text_sat_url:      TextBox2 = TextBox2(tauon=self)
 		self.text_sat_playlist: TextBox2 = TextBox2(tauon=self)
@@ -24490,7 +24506,7 @@ class Over:
 
 		# self.tab_width = round(115 * self.gui.scale)
 		self.w = 100
-		self.h = 100
+		self.h = 160  # Increased from 100 to accommodate AI Playlist settings
 
 		self.box_x = 100
 		self.box_y = 100
@@ -25561,6 +25577,11 @@ class Over:
 		if self.button2(x + round(95 * gui.scale), y, "Satellite", width=84 * gui.scale):
 			self.account_view = 11
 
+		y += 28 * gui.scale
+
+		if self.button2(x, y, "AI Playlist", width=84 * gui.scale):
+			self.account_view = 15
+
 		if self.account_view in (9, 2):
 			self.toggle_square(
 				x0 + 230 * gui.scale, y + 2 * gui.scale, self.tauon.toggle_scrobble_mark,
@@ -26267,6 +26288,253 @@ class Over:
 			self.toggle_square(
 				x, y, self.tauon.toggle_scrobble_mark,
 				_("Show threshold marker"))
+
+			# ── Playlist Generator Settings ──────────────────────────────
+			y += 35 * gui.scale
+			ddt.text((x, y), "Playlist Generator", colours.box_sub_text, 213)
+			y += 25 * gui.scale
+
+			field_width = round(245 * gui.scale)
+
+			ddt.text((x + 0 * gui.scale, y), _("Last.fm Gen API Key"), colours.box_text_label, 11)
+			y += round(19 * gui.scale)
+			rect1 = (x + 0 * gui.scale, y, field_width, round(17 * gui.scale))
+			self.fields.add(rect1)
+			if self.coll(rect1) and (self.click or inp.level_2_right_click):
+				self.account_text_field = 10
+			ddt.bordered_rect(rect1, colours.box_background, colours.box_text_border, round(1 * gui.scale))
+			tauon.text_lastfm_gen_api_key.text = prefs.lastfm_gen_api_key
+			tauon.text_lastfm_gen_api_key.draw(
+				x + round(4 * gui.scale), y, colours.box_input_text, self.account_text_field == 10,
+				width=rect1[2] - 8 * gui.scale, click=self.click)
+			prefs.lastfm_gen_api_key = tauon.text_lastfm_gen_api_key.text.strip()
+
+			y += round(25 * gui.scale)
+			ddt.text((x + 0 * gui.scale, y), _("Seed Artist (optional)"), colours.box_text_label, 11)
+			y += round(19 * gui.scale)
+			rect1 = (x + 0 * gui.scale, y, field_width, round(17 * gui.scale))
+			self.fields.add(rect1)
+			if self.coll(rect1) and (self.click or inp.level_2_right_click):
+				self.account_text_field = 11
+			ddt.bordered_rect(rect1, colours.box_background, colours.box_text_border, round(1 * gui.scale))
+			tauon.text_lastfm_gen_seed.text = prefs.lastfm_gen_seed
+			tauon.text_lastfm_gen_seed.draw(
+				x + round(4 * gui.scale), y, colours.box_input_text, self.account_text_field == 11,
+				width=rect1[2] - 8 * gui.scale, click=self.click)
+			prefs.lastfm_gen_seed = tauon.text_lastfm_gen_seed.text.strip()
+
+			y += round(25 * gui.scale)
+			ddt.text((x + 0 * gui.scale, y), _("Last.fm Track Limit"), colours.box_text_label, 11)
+			y += round(19 * gui.scale)
+			rect1 = (x + 0 * gui.scale, y, field_width, round(17 * gui.scale))
+			self.fields.add(rect1)
+			if self.coll(rect1) and (self.click or inp.level_2_right_click):
+				self.account_text_field = 12
+			ddt.bordered_rect(rect1, colours.box_background, colours.box_text_border, round(1 * gui.scale))
+			tauon.text_lastfm_gen_limit.text = str(prefs.lastfm_gen_limit)
+			tauon.text_lastfm_gen_limit.draw(
+				x + round(4 * gui.scale), y, colours.box_input_text, self.account_text_field == 12,
+				width=rect1[2] - 8 * gui.scale, click=self.click)
+			try:
+				prefs.lastfm_gen_limit = int(tauon.text_lastfm_gen_limit.text.strip())
+			except ValueError:
+				prefs.lastfm_gen_limit = 60
+
+			y += round(25 * gui.scale)
+			ddt.text((x + 0 * gui.scale, y), _("Anthropic API Key (Claude)"), colours.box_text_label, 11)
+			y += round(19 * gui.scale)
+			rect1 = (x + 0 * gui.scale, y, field_width, round(17 * gui.scale))
+			self.fields.add(rect1)
+			if self.coll(rect1) and (self.click or inp.level_2_right_click):
+				self.account_text_field = 13
+			ddt.bordered_rect(rect1, colours.box_background, colours.box_text_border, round(1 * gui.scale))
+			tauon.text_ai_gen_api_key.text = prefs.ai_gen_api_key
+			tauon.text_ai_gen_api_key.draw(
+				x + round(4 * gui.scale), y, colours.box_input_text, self.account_text_field == 13,
+				width=rect1[2] - 8 * gui.scale, click=self.click)
+			prefs.ai_gen_api_key = tauon.text_ai_gen_api_key.text.strip()
+
+			y += round(25 * gui.scale)
+			ddt.text((x + 0 * gui.scale, y), _("AI Mood Count"), colours.box_text_label, 11)
+			y += round(19 * gui.scale)
+			rect1 = (x + 0 * gui.scale, y, field_width, round(17 * gui.scale))
+			self.fields.add(rect1)
+			if self.coll(rect1) and (self.click or inp.level_2_right_click):
+				self.account_text_field = 14
+			ddt.bordered_rect(rect1, colours.box_background, colours.box_text_border, round(1 * gui.scale))
+			tauon.text_ai_gen_moods.text = str(prefs.ai_gen_moods)
+			tauon.text_ai_gen_moods.draw(
+				x + round(4 * gui.scale), y, colours.box_input_text, self.account_text_field == 14,
+				width=rect1[2] - 8 * gui.scale, click=self.click)
+			try:
+				prefs.ai_gen_moods = int(tauon.text_ai_gen_moods.text.strip())
+			except ValueError:
+				prefs.ai_gen_moods = 6
+
+			# ── Local LLM Settings ───────────────────────────────────
+			y += 35 * gui.scale
+			prefs.use_local_llm = self.toggle_square(
+				x, y, prefs.use_local_llm,
+				_("Use Local LLM (LM Studio, Ollama, etc.)"))
+			y += 28 * gui.scale
+
+			if prefs.use_local_llm:
+				ddt.text((x + 0 * gui.scale, y), _("Local LLM URL"), colours.box_text_label, 11)
+				y += round(19 * gui.scale)
+				rect1 = (x + 0 * gui.scale, y, field_width, round(17 * gui.scale))
+				self.fields.add(rect1)
+				if self.coll(rect1) and (self.click or inp.level_2_right_click):
+					self.account_text_field = 15
+				ddt.bordered_rect(rect1, colours.box_background, colours.box_text_border, round(1 * gui.scale))
+				tauon.text_local_llm_url.text = prefs.local_llm_url
+				tauon.text_local_llm_url.draw(
+					x + round(4 * gui.scale), y, colours.box_input_text, self.account_text_field == 15,
+					width=rect1[2] - 8 * gui.scale, click=self.click)
+				prefs.local_llm_url = tauon.text_local_llm_url.text.strip()
+
+				y += round(25 * gui.scale)
+				ddt.text((x + 0 * gui.scale, y), _("Model Name (optional)"), colours.box_text_label, 11)
+				y += round(19 * gui.scale)
+				rect1 = (x + 0 * gui.scale, y, field_width, round(17 * gui.scale))
+				self.fields.add(rect1)
+				if self.coll(rect1) and (self.click or inp.level_2_right_click):
+					self.account_text_field = 16
+				ddt.bordered_rect(rect1, colours.box_background, colours.box_text_border, round(1 * gui.scale))
+				tauon.text_local_llm_model.text = prefs.local_llm_model
+				tauon.text_local_llm_model.draw(
+					x + round(4 * gui.scale), y, colours.box_input_text, self.account_text_field == 16,
+					width=rect1[2] - 8 * gui.scale, click=self.click)
+				prefs.local_llm_model = tauon.text_local_llm_model.text.strip()
+
+				y += round(20 * gui.scale)
+				ddt.text(
+					(x + 0 * gui.scale, y, field_width, 300 * gui.scale),
+					_("Default: http://localhost:1234/v1/chat/completions (LM Studio)"),
+					colours.box_text_label, 11, max_w=300 * gui.scale)
+				y += round(15 * gui.scale)
+				ddt.text(
+					(x + 0 * gui.scale, y, field_width, 300 * gui.scale),
+					_("For Ollama: http://localhost:11434/v1/chat/completions"),
+					colours.box_text_label, 11, max_w=300 * gui.scale)
+
+		if self.account_view == 15:
+			# ── AI Playlist Generator Settings ──────────────────────────────
+			ddt.text((x, y), "AI Playlist Generator", colours.box_sub_text, 213)
+			y += round(20 * gui.scale)
+
+			field_width = round(260 * gui.scale)
+
+			# Local LLM toggle
+			prefs.use_local_llm = self.toggle_square(
+				x, y, prefs.use_local_llm,
+				_("Use Local LLM"))
+			y += round(25 * gui.scale)
+
+			if prefs.use_local_llm:
+				ddt.text((x + 0 * gui.scale, y), _("URL"), colours.box_text_label, 10)
+				y += round(15 * gui.scale)
+				rect1 = (x + 0 * gui.scale, y, field_width, round(16 * gui.scale))
+				self.fields.add(rect1)
+				if self.coll(rect1) and (self.click or inp.level_2_right_click):
+					self.account_text_field = 15
+				ddt.bordered_rect(rect1, colours.box_background, colours.box_text_border, round(1 * gui.scale))
+				tauon.text_local_llm_url.text = prefs.local_llm_url
+				tauon.text_local_llm_url.draw(
+					x + round(3 * gui.scale), y, colours.box_input_text, self.account_text_field == 15,
+					width=rect1[2] - 6 * gui.scale, click=self.click)
+				prefs.local_llm_url = tauon.text_local_llm_url.text.strip()
+
+				y += round(18 * gui.scale)
+				ddt.text((x + 0 * gui.scale, y), _("Model"), colours.box_text_label, 10)
+				y += round(15 * gui.scale)
+				rect1 = (x + 0 * gui.scale, y, field_width, round(16 * gui.scale))
+				self.fields.add(rect1)
+				if self.coll(rect1) and (self.click or inp.level_2_right_click):
+					self.account_text_field = 16
+				ddt.bordered_rect(rect1, colours.box_background, colours.box_text_border, round(1 * gui.scale))
+				tauon.text_local_llm_model.text = prefs.local_llm_model
+				tauon.text_local_llm_model.draw(
+					x + round(3 * gui.scale), y, colours.box_input_text, self.account_text_field == 16,
+					width=rect1[2] - 6 * gui.scale, click=self.click)
+				prefs.local_llm_model = tauon.text_local_llm_model.text.strip()
+
+				y += round(18 * gui.scale)
+				ddt.text(
+					(x + 0 * gui.scale, y, field_width, 260 * gui.scale),
+					_("LM Studio: localhost:1234"),
+					colours.box_text_label, 9, max_w=260 * gui.scale)
+				y += round(13 * gui.scale)
+				ddt.text(
+					(x + 0 * gui.scale, y, field_width, 260 * gui.scale),
+					_("Ollama: localhost:11434"),
+					colours.box_text_label, 9, max_w=260 * gui.scale)
+			else:
+				ddt.text((x + 0 * gui.scale, y), _("API Key"), colours.box_text_label, 10)
+				y += round(15 * gui.scale)
+				rect1 = (x + 0 * gui.scale, y, field_width, round(16 * gui.scale))
+				self.fields.add(rect1)
+				if self.coll(rect1) and (self.click or inp.level_2_right_click):
+					self.account_text_field = 13
+				ddt.bordered_rect(rect1, colours.box_background, colours.box_text_border, round(1 * gui.scale))
+				tauon.text_ai_gen_api_key.text = prefs.ai_gen_api_key
+				tauon.text_ai_gen_api_key.draw(
+					x + round(3 * gui.scale), y, colours.box_input_text, self.account_text_field == 13,
+					width=rect1[2] - 6 * gui.scale, click=self.click)
+				prefs.ai_gen_api_key = tauon.text_ai_gen_api_key.text.strip()
+
+			y += round(20 * gui.scale)
+			ddt.text((x, y), "Moods", colours.box_sub_text, 213)
+			y += round(15 * gui.scale)
+
+			ddt.text((x + 0 * gui.scale, y), _("Count"), colours.box_text_label, 10)
+			y += round(15 * gui.scale)
+			rect1 = (x + 0 * gui.scale, y, field_width, round(16 * gui.scale))
+			self.fields.add(rect1)
+			if self.coll(rect1) and (self.click or inp.level_2_right_click):
+				self.account_text_field = 14
+			ddt.bordered_rect(rect1, colours.box_background, colours.box_text_border, round(1 * gui.scale))
+			tauon.text_ai_gen_moods.text = str(prefs.ai_gen_moods)
+			tauon.text_ai_gen_moods.draw(
+				x + round(3 * gui.scale), y, colours.box_input_text, self.account_text_field == 14,
+				width=rect1[2] - 6 * gui.scale, click=self.click)
+			try:
+				prefs.ai_gen_moods = int(tauon.text_ai_gen_moods.text.strip())
+			except ValueError:
+				prefs.ai_gen_moods = 6
+
+			y += round(20 * gui.scale)
+			ddt.text((x, y), "Last.fm", colours.box_sub_text, 213)
+			y += round(15 * gui.scale)
+
+			ddt.text((x + 0 * gui.scale, y), _("Seed"), colours.box_text_label, 10)
+			y += round(15 * gui.scale)
+			rect1 = (x + 0 * gui.scale, y, field_width, round(16 * gui.scale))
+			self.fields.add(rect1)
+			if self.coll(rect1) and (self.click or inp.level_2_right_click):
+				self.account_text_field = 11
+			ddt.bordered_rect(rect1, colours.box_background, colours.box_text_border, round(1 * gui.scale))
+			tauon.text_lastfm_gen_seed.text = prefs.lastfm_gen_seed
+			tauon.text_lastfm_gen_seed.draw(
+				x + round(3 * gui.scale), y, colours.box_input_text, self.account_text_field == 11,
+				width=rect1[2] - 6 * gui.scale, click=self.click)
+			prefs.lastfm_gen_seed = tauon.text_lastfm_gen_seed.text.strip()
+
+			y += round(18 * gui.scale)
+			ddt.text((x + 0 * gui.scale, y), _("Limit"), colours.box_text_label, 10)
+			y += round(15 * gui.scale)
+			rect1 = (x + 0 * gui.scale, y, field_width, round(16 * gui.scale))
+			self.fields.add(rect1)
+			if self.coll(rect1) and (self.click or inp.level_2_right_click):
+				self.account_text_field = 12
+			ddt.bordered_rect(rect1, colours.box_background, colours.box_text_border, round(1 * gui.scale))
+			tauon.text_lastfm_gen_limit.text = str(prefs.lastfm_gen_limit)
+			tauon.text_lastfm_gen_limit.draw(
+				x + round(3 * gui.scale), y, colours.box_input_text, self.account_text_field == 12,
+				width=rect1[2] - 6 * gui.scale, click=self.click)
+			try:
+				prefs.lastfm_gen_limit = int(tauon.text_lastfm_gen_limit.text.strip())
+			except ValueError:
+				prefs.lastfm_gen_limit = 60
 
 		if self.account_view == 2:
 
@@ -44376,6 +44644,76 @@ def main(holder: Holder) -> None:
 	tab_menu.add_to_sub(0, MenuItem(_("Top Played Tracks"), tauon.gen_top_100, pass_ref=True))
 	extra_tab_menu.add_to_sub(0, MenuItem(_("Top Played Tracks"), tauon.gen_top_100, pass_ref=True))
 
+	# ── AI Playlist Generator ────────────────────────────────────
+	if _playlist_gen_available:
+		def _notify(msg: str) -> None:
+			"""Show a toast notification in Tauon's UI."""
+			show_message(msg)
+
+		def gen_lastfm_radio():
+			seed = prefs.lastfm_gen_seed
+			if not seed:
+				# Fall back to the currently playing artist
+				if pctl.playing_state > 0 and pctl.track_queue and pctl.queue_step < len(pctl.track_queue):
+					playing_track = pctl.master_library.get(pctl.track_queue[pctl.queue_step])
+					if playing_track:
+						seed = playing_track.artist
+			if not seed:
+				show_message("Set a seed artist in Settings → Accounts → AI Playlist first.")
+				return
+			t_playlist_gen.generate_lastfm(
+				pctl=pctl,
+				master_library=pctl.master_library,
+				star_store=pctl.star_store,
+				seed_artist=seed,
+				limit=prefs.lastfm_gen_limit,
+				notify_fn=_notify,
+			)
+
+		def gen_ai_mood():
+			if prefs.use_local_llm:
+				if not prefs.local_llm_url:
+					show_message("Set local LLM URL in Settings → Accounts.")
+					return
+				t_playlist_gen.generate_llm(
+					pctl=pctl,
+					master_library=pctl.master_library,
+					star_store=pctl.star_store,
+					num_moods=prefs.ai_gen_moods,
+					notify_fn=_notify,
+					use_local_llm=True,
+					local_llm_url=prefs.local_llm_url,
+					local_model=prefs.local_llm_model,
+				)
+			else:
+				if not prefs.ai_gen_api_key:
+					show_message("Add your Anthropic API key in Settings → Accounts.")
+					return
+				t_playlist_gen.generate_llm(
+					pctl=pctl,
+					master_library=pctl.master_library,
+					star_store=pctl.star_store,
+					api_key=prefs.ai_gen_api_key,
+					num_moods=prefs.ai_gen_moods,
+					notify_fn=_notify,
+				)
+
+		def gen_audio_clusters():
+			t_playlist_gen.generate_audio(
+				pctl=pctl,
+				master_library=pctl.master_library,
+				star_store=pctl.star_store,
+				n_clusters=5,
+				notify_fn=_notify,
+			)
+
+		tab_menu.add_to_sub(0, MenuItem(_("↯ Last.fm Radio (current artist)"), gen_lastfm_radio))
+		extra_tab_menu.add_to_sub(0, MenuItem(_("↯ Last.fm Radio (current artist)"), gen_lastfm_radio))
+		tab_menu.add_to_sub(0, MenuItem(_("✦ AI Mood Playlists (Claude/Local)"), gen_ai_mood))
+		extra_tab_menu.add_to_sub(0, MenuItem(_("✦ AI Mood Playlists (Claude/Local)"), gen_ai_mood))
+		tab_menu.add_to_sub(0, MenuItem(_("⊕ Audio Feature Clusters"), gen_audio_clusters))
+		extra_tab_menu.add_to_sub(0, MenuItem(_("⊕ Audio Feature Clusters"), gen_audio_clusters))
+
 	tab_menu.add_to_sub(0, MenuItem(_("Top Played Albums"), tauon.gen_folder_top, pass_ref=True))
 	extra_tab_menu.add_to_sub(0, MenuItem(_("Top Played Albums"), tauon.gen_folder_top, pass_ref=True))
 
@@ -44471,6 +44809,62 @@ def main(holder: Holder) -> None:
 	track_menu.add(MenuItem(_("↳ After Current Track"), tauon.add_to_queue_next, pass_ref=True, show_test=inp.test_shift))
 
 	track_menu.add(MenuItem(_("Show in Gallery"), tauon.menu_show_in_gal, pass_ref=True, show_test=tauon.test_show))
+
+	# ── AI Playlist Generator ────────────────────────────────────
+	if _playlist_gen_available:
+		def _track_notify(msg: str) -> None:
+			"""Show a toast notification."""
+			tauon.show_message(msg)
+
+		def gen_lastfm_from_track(ref):
+			track = pctl.master_library.get(ref.track_id) if ref and ref.track_id is not None else None
+			if not track:
+				track = pctl.master_library.get(pctl.track_queue[pctl.queue_step]) if pctl.queue_step < len(pctl.track_queue) else None
+			if not track or not track.artist:
+				tauon.show_message("No artist found for this track.")
+				return
+			t_playlist_gen.generate_lastfm(
+				pctl=pctl,
+				master_library=pctl.master_library,
+				star_store=pctl.star_store,
+				seed_artist=track.artist,
+				limit=prefs.lastfm_gen_limit,
+				notify_fn=_track_notify,
+			)
+
+		def gen_ai_from_track(ref):
+			if prefs.use_local_llm:
+				if not prefs.local_llm_url:
+					tauon.show_message("Set local LLM URL in Settings → Accounts.")
+					return
+				t_playlist_gen.generate_llm(
+					pctl=pctl,
+					master_library=pctl.master_library,
+					star_store=pctl.star_store,
+					num_moods=prefs.ai_gen_moods,
+					notify_fn=_track_notify,
+					use_local_llm=True,
+					local_llm_url=prefs.local_llm_url,
+					local_model=prefs.local_llm_model,
+				)
+			else:
+				if not prefs.ai_gen_api_key:
+					tauon.show_message("Add Anthropic API key in Settings → Accounts.")
+					return
+				t_playlist_gen.generate_llm(
+					pctl=pctl,
+					master_library=pctl.master_library,
+					star_store=pctl.star_store,
+					api_key=prefs.ai_gen_api_key,
+					num_moods=prefs.ai_gen_moods,
+					notify_fn=_track_notify,
+				)
+
+		track_menu.add_sub(_("Generate Playlist…"), 160)
+		track_menu.add_to_sub(-1, MenuItem(_("↯ Last.fm Radio (this artist)"), gen_lastfm_from_track, pass_ref=True))
+		track_menu.add_to_sub(-1, MenuItem(_("✦ AI Mood Playlists"), gen_ai_from_track, pass_ref=True))
+		track_menu.add_to_sub(-1, MenuItem(_("⊕ Audio Feature Clusters"), lambda ref: t_playlist_gen.generate_audio(
+			pctl=pctl, master_library=pctl.master_library, star_store=pctl.star_store, n_clusters=5, notify_fn=_track_notify), pass_ref=True))
 
 	track_menu.add_sub(_("Meta…"), 160)
 
