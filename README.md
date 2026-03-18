@@ -76,3 +76,8 @@ I highly recommend reading the Tauon [manual](https://tauonmusicbox.rocks/manual
 Feel free to submit any issues you encounter.
 
 [![Maintenance](https://img.shields.io/maintenance/yes/2026.svg?color=a3e11f&style=for-the-badge)](https://github.com/Taiko2k/tauonmb/releases) [![GitHub release](https://img.shields.io/github/release/taiko2k/tauonmb.svg?style=for-the-badge&colorB=ff69b4)](https://github.com/Taiko2k/tauonmb/releases) [![Discord](https://img.shields.io/discord/687418493209018622.svg?color=a483ef&style=for-the-badge)](https://discord.gg/v4EmhES)
+
+Support the Project
+
+If you find this fork useful, consider supporting its development:
+bc1qa25wm50g9pl26xzc0fl63reqxp47e05dp64942 (BTC)
