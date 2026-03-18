@@ -38,7 +38,6 @@ log = logging.getLogger("t_playlist_gen")
 
 LASTFM_API = "https://ws.audioscrobbler.com/2.0/"
 ANTHROPIC_API = "https://api.anthropic.com/v1/messages"
-SPOTIFY_AUDIO_FEATURES_CACHE = {}  # Simple in-memory cache: {track_key: features_dict}
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -470,91 +469,13 @@ def generate_llm(
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Strategy C – Hybrid audio feature clustering (Spotify + local fallback)
+# Strategy C – Offline audio feature clustering (librosa or metadata)
 # ─────────────────────────────────────────────────────────────────────────────
-
-def _get_spotify_features(pctl, track: dict) -> dict | None:
-    """
-    Try to get audio features from Spotify for a track.
-    Uses fuzzy matching to find the track in Spotify's catalog.
-    Returns dict with features or None if not found.
-    """
-    try:
-        import tekore as tk
-    except ImportError:
-        return None
-    
-    if not hasattr(pctl, 'spot') or not pctl.spot or not pctl.spot.spotify:
-        return None
-    
-    spotify = pctl.spot.spotify
-    if not spotify:
-        return None
-    
-    artist = track.get("artist", "")
-    title = track.get("title", "")
-    duration = track.get("duration", 0)
-    
-    if not artist or not title:
-        return None
-    
-    query = f"track:{title} artist:{artist}"
-    try:
-        search_result = spotify.search(query, types=("track",), limit=5)
-        
-        if not search_result or not search_result[0] or not search_result[0].items:
-            return None
-        
-        best_match = None
-        best_duration_diff = float('inf')
-        
-        for spotify_track in search_result[0].items:
-            spotify_duration_ms = getattr(spotify_track, 'duration_ms', 0)
-            spotify_duration_s = spotify_duration_ms / 1000.0
-            
-            duration_diff = abs(spotify_duration_s - duration) if duration > 0 else 0
-            
-            spotify_artists = [a.name.lower() for a in spotify_track.artists]
-            artist_match = any(artist.lower() in sa or sa in artist.lower() for sa in spotify_artists)
-            
-            if artist_match and duration_diff < best_duration_diff:
-                best_match = spotify_track
-                best_duration_diff = duration_diff
-        
-        if not best_match or best_duration_diff > 10:
-            return None
-        
-        track_id = best_match.id
-        features = spotify.track_audio_features(track_id)
-        
-        if not features:
-            return None
-        
-        return {
-            "danceability": features.danceability,
-            "energy": features.energy,
-            "valence": features.valence,
-            "tempo": features.tempo,
-            "acousticness": features.acousticness,
-            "instrumentalness": features.instrumentalness,
-            "liveness": features.liveness,
-            "speechiness": features.speechiness,
-            "loudness": features.loudness,
-            "key": features.key,
-            "mode": features.mode,
-            "time_signature": features.time_signature,
-            "duration_ms": features.duration_ms,
-            "source": "spotify"
-        }
-        
-    except Exception as e:
-        log.debug(f"Spotify features lookup failed for {artist} - {title}: {e}")
-        return None
-
 
 def _get_local_features(track: dict, sample_duration: float = 30.0) -> dict | None:
     """
-    Extract audio features locally using librosa (fallback when Spotify unavailable).
+    Extract audio features locally using librosa.
+    Fully offline, no external API calls.
     """
     try:
         import librosa
@@ -576,19 +497,11 @@ def _get_local_features(track: dict, sample_duration: float = 30.0) -> dict | No
         rolloff = librosa.feature.spectral_rolloff(y=y, sr=sr).mean()
         
         return {
-            "danceability": 0.5,
+            "bpm": float(tempo),
             "energy": float(rms * 1000),
-            "valence": 0.5,
-            "tempo": float(tempo),
-            "acousticness": 0.5,
-            "instrumentalness": 0.5,
-            "liveness": 0.1,
-            "speechiness": 0.1,
-            "loudness": float(rolloff),
-            "key": -1,
-            "mode": -1,
-            "time_signature": 4,
-            "duration_ms": track.get("duration", 0) * 1000,
+            "centroid": float(centroid),
+            "zcr": float(zcr * 1000),
+            "rolloff": float(rolloff),
             "source": "librosa"
         }
         
@@ -597,27 +510,38 @@ def _get_local_features(track: dict, sample_duration: float = 30.0) -> dict | No
         return None
 
 
-def _get_track_features(pctl, track: dict, use_spotify: bool = True) -> dict | None:
+def _get_metadata_features(track: dict) -> dict:
     """
-    Get audio features for a track, trying Spotify first then local analysis.
-    Uses caching to avoid repeated API calls.
+    Extract features from track metadata (tags).
+    Instant, no audio analysis needed.
     """
-    cache_key = f"{track.get('artist', '')}__{track.get('title', '')}__{track.get('duration', 0)}"
+    # Get BPM from tags if available
+    bpm = getattr(track, 'bpm', 0) or 0
+    if not bpm:
+        bpm = getattr(track, 'misc', {}).get('bpm', 0) or 0
     
-    if cache_key in SPOTIFY_AUDIO_FEATURES_CACHE:
-        return SPOTIFY_AUDIO_FEATURES_CACHE[cache_key]
+    # Encode genre as numeric feature
+    genre = getattr(track, 'genre', '').lower()
+    genre_map = {
+        'rock': 1, 'pop': 2, 'electronic': 3, 'jazz': 4,
+        'classical': 5, 'hip hop': 6, 'metal': 7, 'folk': 8,
+        'ambient': 9, 'blues': 10, 'country': 11, 'r&b': 12,
+    }
+    genre_code = 0
+    for g, code in genre_map.items():
+        if g in genre:
+            genre_code = code
+            break
     
-    if use_spotify:
-        features = _get_spotify_features(pctl, track)
-        if features:
-            SPOTIFY_AUDIO_FEATURES_CACHE[cache_key] = features
-            return features
+    # Get year/era
+    year = getattr(track, 'date', 0) or 0
     
-    features = _get_local_features(track)
-    if features:
-        SPOTIFY_AUDIO_FEATURES_CACHE[cache_key] = features
-    
-    return features
+    return {
+        "bpm": bpm,
+        "genre": genre_code,
+        "year": year,
+        "source": "metadata"
+    }
 
 
 def generate_audio(
@@ -626,21 +550,20 @@ def generate_audio(
     star_store,
     n_clusters: int = 5,
     sample_duration: float = 30.0,
-    use_spotify_features: bool = True,
+    use_deep_analysis: bool = False,
     notify_fn=None,
 ) -> None:
     """
-    Analyse each track with Spotify audio features (if available) or librosa,
-    then K-means cluster. 
+    Analyse each track using metadata or librosa (fully offline),
+    then K-means cluster.
     
-    NEW: Hybrid approach - Spotify features + local fallback
-    NEW: Rich features from Spotify: danceability, energy, valence, acousticness, etc.
-    NEW: Better error handling and progress reporting
+    Two modes:
+    1. Fast mode (default): Use existing tags (genre, year, BPM)
+    2. Deep analysis mode: Use librosa for audio features (slower but accurate)
     
     Features used for clustering:
-    - From Spotify: danceability, energy, valence, tempo, acousticness, 
-                    instrumentalness, liveness, speechiness, loudness
-    - From librosa (fallback): BPM, spectral centroid, energy, ZCR, rolloff, chroma
+    - Fast mode: genre, year, BPM (from tags)
+    - Deep mode: BPM, energy, spectral centroid, ZCR, rolloff
     """
     def _run():
         try:
@@ -658,44 +581,51 @@ def generate_audio(
             if notify_fn:
                 notify_fn("Audio Cluster: no tracks found in library")
             return
-            
-        if notify_fn:
-            notify_fn(f"Audio Cluster: analysing {len(tracks)} tracks… (this takes a while)")
+        
+        if use_deep_analysis:
+            if notify_fn:
+                notify_fn(f"Audio Cluster: analysing {len(tracks)} tracks with librosa… (this takes a while)")
+        else:
+            if notify_fn:
+                notify_fn(f"Audio Cluster: analysing {len(tracks)} tracks using metadata…")
 
         features: list[list[float]] = []
         valid: list[dict] = []
         failed_count = 0
-        spotify_count = 0
-        local_count = 0
         start_time = time.time()
 
         for i, t in enumerate(tracks):
-            track_features = _get_track_features(pctl, t, use_spotify=use_spotify_features)
+            if use_deep_analysis:
+                # Deep analysis mode: use librosa
+                track_features = _get_local_features(t, sample_duration)
+            else:
+                # Fast mode: use metadata tags
+                track_features = _get_metadata_features(t)
             
             if not track_features:
                 failed_count += 1
                 continue
             
-            # Build feature vector using rich Spotify features
-            feature_vector = [
-                track_features.get("danceability", 0.5),
-                track_features.get("energy", 0.5),
-                track_features.get("valence", 0.5),
-                track_features.get("tempo", 120) / 200.0,
-                track_features.get("acousticness", 0.5),
-                track_features.get("instrumentalness", 0.5),
-                track_features.get("liveness", 0.1),
-                track_features.get("speechiness", 0.1),
-                (track_features.get("loudness", -10) + 60) / 60.0,
-            ]
+            # Build feature vector for clustering
+            if use_deep_analysis:
+                # Librosa features
+                feature_vector = [
+                    track_features.get("bpm", 120) / 200.0,  # Normalize BPM
+                    track_features.get("energy", 0.5),
+                    track_features.get("centroid", 0.5) / 10000,  # Normalize
+                    track_features.get("zcr", 0.5),
+                    track_features.get("rolloff", 0.5) / 10000,  # Normalize
+                ]
+            else:
+                # Metadata features
+                feature_vector = [
+                    track_features.get("bpm", 120) / 200.0,  # Normalize BPM
+                    track_features.get("genre", 0) / 12.0,    # Normalize genre
+                    track_features.get("year", 1980) / 2025.0,  # Normalize year
+                ]
             
             features.append(feature_vector)
             valid.append(t)
-            
-            if track_features.get("source") == "spotify":
-                spotify_count += 1
-            else:
-                local_count += 1
             
             if notify_fn and i % 50 == 0 and i > 0:
                 elapsed = time.time() - start_time
@@ -706,8 +636,7 @@ def generate_audio(
                 notify_fn(f"Audio Cluster: {i}/{len(tracks)} analysed (~{eta_minutes}min remaining)")
 
         elapsed_total = time.time() - start_time
-        log.info(f"Audio analysis complete: {len(valid)} succeeded, {failed_count} failed "
-                f"(Spotify: {spotify_count}, Local: {local_count}) in {elapsed_total:.1f}s")
+        log.info(f"Audio analysis complete: {len(valid)} succeeded, {failed_count} failed in {elapsed_total:.1f}s")
 
         if len(valid) < n_clusters:
             if notify_fn:
@@ -727,15 +656,29 @@ def generate_audio(
                 return f"⊕ Cluster {cid + 1}"
             
             cluster_features = [features[i] for i in idxs]
-            median_energy = sorted(f[1] for f in cluster_features)[len(cluster_features)//2]
-            median_valence = sorted(f[2] for f in cluster_features)[len(cluster_features)//2]
-            median_tempo = sorted(f[3] for f in cluster_features)[len(cluster_features)//2] * 200
             
-            energy_w = "Calm" if median_energy < 0.3 else "Energetic" if median_energy > 0.7 else "Moderate"
-            valence_w = "Dark" if median_valence < 0.3 else "Happy" if median_valence > 0.7 else "Neutral"
-            tempo_w = "Slow" if median_tempo < 90 else "Fast" if median_tempo > 130 else "Mid-tempo"
-            
-            return f"⊕ {energy_w} {valence_w} ({tempo_w})"
+            if use_deep_analysis:
+                # Librosa-based naming
+                median_bpm = sorted(f[0] for f in cluster_features)[len(cluster_features)//2] * 200
+                median_energy = sorted(f[1] for f in cluster_features)[len(cluster_features)//2]
+                
+                energy_w = "Calm" if median_energy < 0.3 else "Energetic" if median_energy > 0.7 else "Moderate"
+                tempo_w = "Slow" if median_bpm < 90 else "Fast" if median_bpm > 130 else "Mid-tempo"
+                
+                return f"⊕ {energy_w} ({tempo_w})"
+            else:
+                # Metadata-based naming
+                median_bpm = sorted(f[0] for f in cluster_features)[len(cluster_features)//2] * 200
+                median_genre = sorted(f[1] for f in cluster_features)[len(cluster_features)//2]
+                median_year = sorted(f[2] for f in cluster_features)[len(cluster_features)//2] * 2025
+                
+                genre_map = {1: 'Rock', 2: 'Pop', 3: 'Electronic', 4: 'Jazz', 5: 'Classical'}
+                genre_name = genre_map.get(int(median_genre * 12), 'Mixed')
+                era = int(median_year / 10) * 10
+                
+                tempo_w = "Slow" if median_bpm < 90 else "Fast" if median_bpm > 130 else "Mid-tempo"
+                
+                return f"⊕ {genre_name} {era}s ({tempo_w})"
 
         for cid in range(n_clusters):
             ids = [valid[i]["id"] for i, l in enumerate(labels) if l == cid]

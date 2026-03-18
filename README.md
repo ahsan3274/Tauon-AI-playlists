@@ -25,9 +25,10 @@
 
 ### AI Playlist Generator :robot:
 
-  - **Last.fm Radio** - Generate playlists from similar artists (includes collaboration tracks!)
+  - **Last.fm Radio** - Generate playlists from similar artists
   - **AI Mood Playlists** - Cluster your library into mood-based playlists using LLM (Claude, LM Studio, Ollama)
-  - **Audio Feature Clusters** - Offline clustering using Spotify audio features (danceability, energy, valence)
+  - **Audio Feature Clusters** - Offline clustering using metadata or librosa analysis
+  - **Autoplay** - Automatically queue similar tracks when queue ends (100% offline)
   - See [IMPROVEMENTS.md](IMPROVEMENTS.md) for details
 
 
