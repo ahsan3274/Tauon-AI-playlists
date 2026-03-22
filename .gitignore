@@ -38,3 +38,4 @@ lrclib-solver
 # Documentation
 CHANGES_AND_PROGRESS.md
 TESTING_INSTRUCTIONS.md
+mood_algorithm_test/

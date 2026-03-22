@@ -375,6 +375,14 @@ class Deco:
 		self.drawables: list[Drawable] = []
 		self.get_themes: GetThemesFn
 
+	def __call__(self, reference=None) -> Decorator:
+		"""Make Deco callable for menu rendering. Returns default decorator."""
+		return Decorator(
+			text_colour=self.tauon.colours.menu_text,
+			bg_colour=self.tauon.colours.menu_text_label,
+			text=None
+		)
+
 	def unload(self) -> None:
 		for item in self.drawables:
 			sdl3.SDL_DestroyTexture(item.texture)

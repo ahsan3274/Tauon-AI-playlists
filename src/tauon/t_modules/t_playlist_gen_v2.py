@@ -25,7 +25,7 @@ import random
 import threading
 import time
 from collections import defaultdict
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Dict, Any, Optional
 
 from tauon.t_modules.t_utils_playlist import (
     get_library_tracks,
@@ -151,112 +151,131 @@ def _get_spotify_features(pctl, track: dict) -> dict | None:
         return None
 
 
-def _get_metadata_features(track: dict) -> dict:
+def _get_metadata_features(track: Dict[str, Any]) -> Dict[str, Any]:
     """
-    Extract features from track metadata (tags).
-    Fallback when Spotify features unavailable.
-    
-    Estimates energy and valence from genre and BPM.
+    Extract audio features from track metadata (tags).
+
+    Args:
+        track: Dictionary with any of:
+               · genre    (str)   — e.g. "rock", "ambient"
+               · bpm      (float) — beats per minute
+               · mode     (int)   — 1 = major key, 0 = minor key, None = unknown
+               · loudness (float) — track loudness in dBFS (negative number)
+               · key      (int)   — MIDI key 0–11 (informational only)
+
+    Returns:
+        Dictionary with energy (0–1), valence (0–1), danceability (0–1),
+        acousticness (0–1), loudness (dBFS), tempo (BPM), mode (int/None).
     """
-    # Get BPM from tags if available
-    bpm = getattr(track, 'bpm', 0) or 0
+    # ── BPM ──────────────────────────────────────────────────────────────────
+    bpm: float = float(track.get('bpm', 0) or 0)
     if not bpm:
-        bpm = getattr(track, 'misc', {}).get('bpm', 0) or 0
-    
-    # Get genre for estimation
-    genre = getattr(track, 'genre', '').lower()
-    
-    # Genre-based energy estimation (0-1)
-    genre_energy_map = {
-        'metal': 0.9, 'rock': 0.7, 'punk': 0.95, 'hardcore': 0.95,
-        'electronic': 0.8, 'techno': 0.85, 'house': 0.75, 'trance': 0.8,
-        'hip hop': 0.7, 'rap': 0.75, 'trap': 0.8,
-        'pop': 0.65, 'dance': 0.8, 'disco': 0.75, 'funk': 0.7,
-        'r&b': 0.5, 'soul': 0.5, 'blues': 0.4,
-        'jazz': 0.4, 'classical': 0.3, 'ambient': 0.15,
-        'folk': 0.35, 'country': 0.5, 'reggae': 0.5,
-        'indie': 0.55, 'alternative': 0.65,
-    }
-    
-    # Genre-based valence estimation (0-1, happiness/positiveness)
-    genre_valence_map = {
-        'pop': 0.75, 'disco': 0.8, 'funk': 0.75, 'dance': 0.8,
-        'reggae': 0.7, 'soul': 0.65, 'r&b': 0.6,
-        'rock': 0.55, 'metal': 0.35, 'punk': 0.5,
-        'electronic': 0.6, 'techno': 0.55, 'house': 0.7,
-        'hip hop': 0.5, 'rap': 0.45, 'trap': 0.4,
-        'jazz': 0.55, 'blues': 0.35, 'classical': 0.5,
-        'folk': 0.5, 'country': 0.6, 'ambient': 0.5,
-        'indie': 0.55, 'alternative': 0.45,
-    }
-    
-    energy = 0.5  # Default
-    valence = 0.5  # Default
-    genre_code = 0
-    
-    # Try genre-based estimation first
-    for g, energy_val in genre_energy_map.items():
+        bpm = float(track.get('misc', {}).get('bpm', 0) or 0)
+
+    # ── Genre ─────────────────────────────────────────────────────────────────
+    genre: str = (track.get('genre', '') or '').lower()
+
+    # ── Mode ─────────────────────────────────────────────────────────────────
+    mode: Optional[int] = track.get('mode', None)
+    if mode is not None:
+        try:
+            mode = int(mode)
+        except (TypeError, ValueError):
+            mode = None
+
+    # ── Loudness ─────────────────────────────────────────────────────────────
+    loudness_raw = track.get('loudness', None)
+    loudness_db: Optional[float] = None
+    if loudness_raw is not None:
+        try:
+            loudness_db = float(loudness_raw)
+        except (TypeError, ValueError):
+            pass
+
+    # ── Genre base values ─────────────────────────────────────────────────────
+    energy  = 0.50
+    valence = 0.50
+    genre_matched = False
+
+    for g, e_val in _GENRE_ENERGY.items():
         if g in genre:
-            energy = energy_val
-            valence = genre_valence_map.get(g, 0.5)
+            energy  = e_val
+            valence = _GENRE_VALENCE.get(g, 0.50)
+            genre_matched = True
             break
-    
-    # If no genre found, use BPM-based estimation (more reliable!)
-    if energy == 0.5 and bpm > 0:
-        bpm_norm = min(bpm / 180.0, 1.0)
-        # Higher BPM generally = higher energy
-        # Use a better range: 120 BPM = 0.5 energy, 180 BPM = 0.9 energy
-        energy = 0.2 + (bpm_norm * 0.8)  # Range: 0.2 to 1.0
-        # Higher BPM also correlates with positive valence
-        valence = 0.3 + (bpm_norm * 0.4)  # Range: 0.3 to 0.7
-    
-    # Adjust energy based on BPM (even if genre found)
+
+    # ── BPM adjustment ───────────────────────────────────────────────────────
+    # Tempo correlates with arousal; 60–180 BPM normalised to 0–1.
     if bpm > 0:
-        bpm_norm = min(bpm / 180.0, 1.0)
-        energy = (energy * 0.5 + bpm_norm * 0.5)  # Equal blend of genre + BPM
-    
-    # Estimate danceability from genre and BPM
-    danceability = 0.5
+        bpm_norm   = max(0.0, min(1.0, (bpm - 60.0) / 120.0))
+        bpm_energy = 0.30 + bpm_norm * 0.60   # 0.30 – 0.90
+
+        if genre_matched:
+            energy = energy * 0.55 + bpm_energy * 0.45
+        else:
+            energy  = bpm_energy
+            valence = 0.42 + bpm_norm * 0.36   # 0.42 – 0.78 (mild positivity)
+
+    # ── Loudness adjustment ──────────────────────────────────────────────────
+    # Loudness / intensity is a strong arousal correlate.
+    # Typical mastered range: −20 dBFS (quiet) to −4 dBFS (loud).
+    if loudness_db is not None:
+        loudness_norm = max(0.0, min(1.0, (loudness_db + 24.0) / 20.0))
+        energy = energy * 0.75 + loudness_norm * 0.25
+
+    # ── Mode shift (the key new signal) ──────────────────────────────────────
+    if mode == 1:
+        valence += MODE_MAJOR_SHIFT
+    elif mode == 0:
+        valence += MODE_MINOR_SHIFT
+
+    energy  = max(0.05, min(0.95, energy))
+    valence = max(0.05, min(0.95, valence))
+
+    # ── Danceability ──────────────────────────────────────────────────────────
+    danceability = 0.50
     if any(g in genre for g in ['disco', 'dance', 'house', 'funk', 'pop']):
-        danceability = 0.8
-    elif any(g in genre for g in ['metal', 'classical', 'ambient', 'blues']):
-        danceability = 0.3
+        danceability = 0.82
     elif any(g in genre for g in ['hip hop', 'r&b', 'soul', 'reggae']):
-        danceability = 0.7
+        danceability = 0.72
+    elif any(g in genre for g in ['metal', 'classical', 'ambient', 'blues']):
+        danceability = 0.30
     elif bpm > 0:
-        # BPM-based danceability estimate
-        danceability = 0.4 + (bpm_norm * 0.4)
-    
-    # Estimate acousticness from genre
-    acousticness = 0.5
-    if any(g in genre for g in ['classical', 'folk', 'acoustic', 'ambient']):
-        acousticness = 0.9
-    elif any(g in genre for g in ['electronic', 'techno', 'metal', 'pop']):
-        acousticness = 0.1
-    
-    # Estimate loudness from genre (typical mastering levels)
-    loudness = -10  # Default
-    if any(g in genre for g in ['metal', 'electronic', 'pop', 'rock']):
-        loudness = -5  # Louder
-    elif any(g in genre for g in ['classical', 'jazz', 'ambient', 'folk']):
-        loudness = -15  # Quieter
-    
-    # Get year/era
-    year = getattr(track, 'date', 0) or 0
-    
+        bpm_norm = max(0.0, min(1.0, (bpm - 60.0) / 120.0))
+        danceability = 0.40 + bpm_norm * 0.40
+
+    # ── Acousticness ──────────────────────────────────────────────────────────
+    acousticness = 0.50
+    if any(g in genre for g in ['classical', 'folk', 'acoustic', 'ambient', 'jazz']):
+        acousticness = 0.88
+    elif any(g in genre for g in ['electronic', 'techno', 'metal', 'pop', 'house']):
+        acousticness = 0.12
+
+    # ── Estimated loudness (fallback) ─────────────────────────────────────────
+    if loudness_db is None:
+        if any(g in genre for g in ['metal', 'electronic', 'pop', 'rock', 'punk']):
+            loudness_db = -5.0
+        elif any(g in genre for g in ['classical', 'jazz', 'ambient', 'folk']):
+            loudness_db = -15.0
+        else:
+            loudness_db = -10.0
+
     return {
-        "bpm": bpm,
-        "energy": energy,
-        "valence": valence,
-        "danceability": danceability,
-        "acousticness": acousticness,
-        "loudness": loudness,
-        "tempo": bpm,
-        "genre": genre_code,
-        "year": year,
-        "source": "metadata"
+        "bpm":          bpm,
+        "energy":       round(energy,       3),
+        "valence":      round(valence,       3),
+        "danceability": round(danceability,  3),
+        "acousticness": round(acousticness,  3),
+        "loudness":     loudness_db,
+        "tempo":        bpm,
+        "mode":         mode,
+        "source":       "metadata",
     }
 
+
+# ─────────────────────────────────────────────────────────────────────────────
+# MOOD SCORING
+# ─────────────────────────────────────────────────────────────────────────────
 
 def _get_librosa_features(filepath: str, duration: float = 30.0) -> dict | None:
     """
@@ -362,110 +381,46 @@ def _get_track_features(pctl, track: dict) -> dict:
     return metadata_features
 
 
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Recommendation Strategy 1: Mood-Based Playlists (IMPROVED with Paper Algorithm)
 # ─────────────────────────────────────────────────────────────────────────────
 
-def calculate_mood_score(track_features: dict, audio_signal=None) -> dict:
+def calculate_mood_score(track_features: Dict[str, Any]) -> Dict[str, float]:
     """
-    Calculate mood scores based on Thayer's 8-mood model.
-    
-    Implements algorithm from:
-    "An Efficient Classification Algorithm for Music Mood Detection"
-    Using: Intensity, Timbre, Pitch, Rhythm features
-    
-    Returns scores for 8 moods:
-    - Exuberant, Energetic, Frantic, Happy
-    - Contentment, Calm, Sad, Depression
-    """
-    scores = {}
-    
-    # Get Spotify features (if available)
-    energy = track_features.get('energy', 0.5)
-    valence = track_features.get('valence', 0.5)
-    danceability = track_features.get('danceability', 0.5)
-    tempo = track_features.get('tempo', 120)
-    loudness = track_features.get('loudness', -10)
-    acousticness = track_features.get('acousticness', 0.5)
-    
-    # Normalize loudness to 0-1 range (-60dB to 0dB)
-    loudness_norm = (loudness + 60) / 60.0
-    
-    # Normalize tempo (0-200 BPM)
-    tempo_norm = min(tempo / 200.0, 1.0)
-    
-    # Calculate intensity features (from paper)
-    intensity = (energy * 0.7 + loudness_norm * 0.3)
-    
-    # Calculate timbre features (simplified from paper)
-    timbre = (1.0 - acousticness)
-    
-    # Calculate rhythm features
-    rhythm = (danceability * 0.5 + tempo_norm * 0.5)
-    
-    # 8-Mood Classification (Thayer's model + paper's moods)
-    # Weights calibrated based on Table 1 and Table 3 from paper
-    
-    # HIGH ENERGY MOODS
-    scores['Exuberant'] = (
-        intensity * 0.30 +      # High intensity
-        valence * 0.40 +        # Very high valence (happy)
-        rhythm * 0.20 +         # High rhythm
-        tempo_norm * 0.10       # Medium-high tempo
-    )
-    
-    scores['Energetic'] = (
-        intensity * 0.50 +      # Very high intensity
-        rhythm * 0.25 +         # High rhythm
-        (1.0 - abs(valence - 0.5)) * 0.15 +  # Mid valence (neutral)
-        tempo_norm * 0.10       # Medium tempo
-    )
-    
-    scores['Frantic'] = (
-        intensity * 0.35 +      # High intensity
-        rhythm * 0.35 +         # Very high rhythm (fast, irregular)
-        (1.0 - valence) * 0.20 +  # Low valence (tense/anxious)
-        timbre * 0.10           # High timbre irregularity
-    )
-    
-    scores['Happy'] = (
-        valence * 0.45 +        # Very high valence
-        rhythm * 0.25 +         # High rhythm
-        intensity * 0.20 +      # Medium intensity
-        tempo_norm * 0.10       # High tempo
-    )
-    
-    # LOW ENERGY MOODS
-    scores['Contentment'] = (
-        valence * 0.45 +        # High valence
-        (1.0 - intensity) * 0.35 +  # Low intensity
-        (1.0 - rhythm) * 0.10 +  # Low rhythm
-        (1.0 - tempo_norm) * 0.10  # Low tempo
-    )
-    
-    scores['Calm'] = (
-        (1.0 - intensity) * 0.50 +  # Very low intensity
-        (1.0 - rhythm) * 0.25 +  # Very low rhythm
-        acousticness * 0.15 +  # High acousticness
-        (1.0 - abs(valence - 0.5)) * 0.10  # Mid valence (neutral)
-    )
-    
-    scores['Sad'] = (
-        (1.0 - valence) * 0.45 +  # Low valence
-        (1.0 - intensity) * 0.25 +  # Low-medium intensity
-        (1.0 - rhythm) * 0.20 +  # Low rhythm
-        (1.0 - tempo_norm) * 0.10  # Low tempo
-    )
-    
-    scores['Depression'] = (
-        (1.0 - valence) * 0.40 +  # Very low valence
-        (1.0 - intensity) * 0.35 +  # Very low intensity
-        (1.0 - rhythm) * 0.15 +  # Very low rhythm
-        (1.0 - tempo_norm) * 0.10  # Very low tempo
-    )
-    
-    return scores
+    Calculate normalised mood scores using Gaussian distance in (E × V) space.
 
+    Returns:
+        Dict mapping mood name → score (0–1, sums to 1.0).
+        Higher = better match.
+    """
+    energy      = float(track_features.get('energy',       0.50))
+    valence     = float(track_features.get('valence',      0.50))
+    tempo       = float(track_features.get('tempo',        120 ))
+    danceability = float(track_features.get('danceability', 0.50))
+
+    energy  = max(0.0, min(1.0, energy))
+    valence = max(0.0, min(1.0, valence))
+
+    # Small secondary adjustments (minor scale, kept subtle)
+    valence_adj = max(0.0, min(1.0, valence + (danceability - 0.5) * 0.06))
+    tempo_norm  = max(0.0, min(1.0, (tempo - 60.0) / 120.0))
+    energy_adj  = max(0.0, min(1.0, energy * 0.92 + tempo_norm * 0.08))
+
+    sigma_sq_x2 = 2.0 * MOOD_SIGMA ** 2
+    raw: Dict[str, float] = {}
+    for mood, (ea, va) in MOOD_ANCHORS.items():
+        d2 = (energy_adj - ea) ** 2 + (valence_adj - va) ** 2
+        raw[mood] = math.exp(-d2 / sigma_sq_x2)
+
+    total = sum(raw.values()) or 1.0
+    return {mood: round(s / total, 4) for mood, s in raw.items()}
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# HELPERS
+# ─────────────────────────────────────────────────────────────────────────────
 
 def generate_mood_playlists(
     pctl,
