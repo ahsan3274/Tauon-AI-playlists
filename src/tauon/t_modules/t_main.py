@@ -116,11 +116,29 @@ except ImportError:
 	logging.warning("t_playlist_gen not found — auto-playlist feature disabled")
 
 try:
+	from tauon.t_modules import t_playlist_gen_v2
+	_playlist_gen_v2_available = True
+except ImportError:
+	_playlist_gen_v2_available = False
+	logging.warning("t_playlist_gen_v2 not found — new audio recommender disabled")
+
+try:
+	from tauon.t_modules import t_mood_visualizer
+	_mood_visualizer_available = True
+except ImportError:
+	_mood_visualizer_available = False
+	logging.warning("t_mood_visualizer not found — mood visualization disabled")
+
+try:
 	from tauon.t_modules import t_autoplay
 	_autoplay_available = True
 except ImportError:
 	_autoplay_available = False
 	logging.warning("t_autoplay not found — autoplay feature disabled")
+
+# Menu icons
+from tauon.t_modules import t_menu_icons  # noqa: E402
+from tauon.t_modules.t_menu_icons import get_icon_filename  # noqa: E402
 
 from tauon.t_modules.t_db_migrate import (  # noqa: E402
 	database_migrate,
@@ -5089,7 +5107,7 @@ class Menu:
 		self.down: bool = False
 		self.font = 412
 		self.show_icons: bool = show_icons
-		self.sub_arrow = MenuIcon(asset_loader(tauon.bag, tauon.bag.loaded_asset_dc, "sub.png", True))
+		self.sub_arrow = MenuIcon(asset_loader(tauon.bag, tauon.bag.loaded_asset_dc, "sub.svg", True))
 
 		self.id = Menu.count
 		self.break_height = round(4 * tauon.gui.scale)
@@ -26445,96 +26463,58 @@ class Over:
 
 		if self.account_view == 15:
 			# ── AI Playlist Generator Settings ──────────────────────────────
-			ddt.text((x, y), "AI Playlist Generator", colours.box_sub_text, 213)
-			y += round(20 * gui.scale)
-
-			field_width = round(260 * gui.scale)
-
-			# Local LLM toggle
-			prefs.use_local_llm = self.toggle_square(
-				x, y, prefs.use_local_llm,
-				_("Use Local LLM"))
+			# Modern redesign with better organization and visual hierarchy
+			ddt.text((x, y), "🎵 AI Playlist Generator", colours.box_sub_text, 213)
+			y += round(10 * gui.scale)
+			
+			# Description header
+			ddt.text(
+				(x, y),
+				_("Generate intelligent playlists using AI, audio features, or music databases"),
+				colours.box_text_label, 11, max_w=500 * gui.scale)
 			y += round(25 * gui.scale)
 
-			if prefs.use_local_llm:
-				ddt.text((x + 0 * gui.scale, y), _("URL"), colours.box_text_label, 10)
-				y += round(15 * gui.scale)
-				rect1 = (x + 0 * gui.scale, y, field_width, round(16 * gui.scale))
-				self.fields.add(rect1)
-				if self.coll(rect1) and (self.click or inp.level_2_right_click):
-					self.account_text_field = 15
-				ddt.bordered_rect(rect1, colours.box_background, colours.box_text_border, round(1 * gui.scale))
-				tauon.text_local_llm_url.text = prefs.local_llm_url
-				tauon.text_local_llm_url.draw(
-					x + round(3 * gui.scale), y, colours.box_input_text, self.account_text_field == 15,
-					width=rect1[2] - 6 * gui.scale, click=self.click)
-				prefs.local_llm_url = tauon.text_local_llm_url.text.strip()
+			field_width = round(300 * gui.scale)
+			section_spacing = round(25 * gui.scale)
+			field_spacing = round(18 * gui.scale)
 
-				y += round(18 * gui.scale)
-				ddt.text((x + 0 * gui.scale, y), _("Model"), colours.box_text_label, 10)
-				y += round(15 * gui.scale)
-				rect1 = (x + 0 * gui.scale, y, field_width, round(16 * gui.scale))
-				self.fields.add(rect1)
-				if self.coll(rect1) and (self.click or inp.level_2_right_click):
-					self.account_text_field = 16
-				ddt.bordered_rect(rect1, colours.box_background, colours.box_text_border, round(1 * gui.scale))
-				tauon.text_local_llm_model.text = prefs.local_llm_model
-				tauon.text_local_llm_model.draw(
-					x + round(3 * gui.scale), y, colours.box_input_text, self.account_text_field == 16,
-					width=rect1[2] - 6 * gui.scale, click=self.click)
-				prefs.local_llm_model = tauon.text_local_llm_model.text.strip()
-
-				y += round(18 * gui.scale)
-				ddt.text(
-					(x + 0 * gui.scale, y, field_width, 260 * gui.scale),
-					_("LM Studio: localhost:1234"),
-					colours.box_text_label, 9, max_w=260 * gui.scale)
-				y += round(13 * gui.scale)
-				ddt.text(
-					(x + 0 * gui.scale, y, field_width, 260 * gui.scale),
-					_("Ollama: localhost:11434"),
-					colours.box_text_label, 9, max_w=260 * gui.scale)
-			else:
-				ddt.text((x + 0 * gui.scale, y), _("API Key"), colours.box_text_label, 10)
-				y += round(15 * gui.scale)
-				rect1 = (x + 0 * gui.scale, y, field_width, round(16 * gui.scale))
-				self.fields.add(rect1)
-				if self.coll(rect1) and (self.click or inp.level_2_right_click):
-					self.account_text_field = 13
-				ddt.bordered_rect(rect1, colours.box_background, colours.box_text_border, round(1 * gui.scale))
-				tauon.text_ai_gen_api_key.text = prefs.ai_gen_api_key
-				tauon.text_ai_gen_api_key.draw(
-					x + round(3 * gui.scale), y, colours.box_input_text, self.account_text_field == 13,
-					width=rect1[2] - 6 * gui.scale, click=self.click)
-				prefs.ai_gen_api_key = tauon.text_ai_gen_api_key.text.strip()
-
-			y += round(20 * gui.scale)
-			ddt.text((x, y), "Moods", colours.box_sub_text, 213)
+			# ═══════════════════════════════════════════════════════════════
+			# Section 1: Last.fm Radio
+			# ═══════════════════════════════════════════════════════════════
+			ddt.text((x, y), "📻 Last.fm Radio", colours.box_sub_text, 213)
+			y += round(5 * gui.scale)
+			ddt.text(
+				(x, y),
+				_("Generate playlists based on similar artists from Last.fm"),
+				colours.box_text_label, 10, max_w=450 * gui.scale)
 			y += round(15 * gui.scale)
 
-			ddt.text((x + 0 * gui.scale, y), _("Count"), colours.box_text_label, 10)
-			y += round(15 * gui.scale)
-			rect1 = (x + 0 * gui.scale, y, field_width, round(16 * gui.scale))
+			# API Key field
+			ddt.text((x, y), _("Last.fm API Key"), colours.box_text_label, 10)
+			y += round(12 * gui.scale)
+			rect1 = (x, y, field_width, round(16 * gui.scale))
 			self.fields.add(rect1)
 			if self.coll(rect1) and (self.click or inp.level_2_right_click):
-				self.account_text_field = 14
+				self.account_text_field = 20
 			ddt.bordered_rect(rect1, colours.box_background, colours.box_text_border, round(1 * gui.scale))
-			tauon.text_ai_gen_moods.text = str(prefs.ai_gen_moods)
-			tauon.text_ai_gen_moods.draw(
-				x + round(3 * gui.scale), y, colours.box_input_text, self.account_text_field == 14,
+			tauon.text_lastfm_gen_api_key.text = prefs.lastfm_gen_api_key
+			tauon.text_lastfm_gen_api_key.draw(
+				x + round(3 * gui.scale), y, colours.box_input_text, self.account_text_field == 20,
 				width=rect1[2] - 6 * gui.scale, click=self.click)
-			try:
-				prefs.ai_gen_moods = int(tauon.text_ai_gen_moods.text.strip())
-			except ValueError:
-				prefs.ai_gen_moods = 6
+			prefs.lastfm_gen_api_key = tauon.text_lastfm_gen_api_key.text.strip()
+			
+			# Help text
+			y += round(18 * gui.scale)
+			ddt.text(
+				(x, y),
+				_("Get your API key from: https://www.last.fm/api/account/create"),
+				colours.box_text_label, 9, max_w=400 * gui.scale)
+			y += section_spacing
 
-			y += round(20 * gui.scale)
-			ddt.text((x, y), "Last.fm", colours.box_sub_text, 213)
-			y += round(15 * gui.scale)
-
-			ddt.text((x + 0 * gui.scale, y), _("Seed"), colours.box_text_label, 10)
-			y += round(15 * gui.scale)
-			rect1 = (x + 0 * gui.scale, y, field_width, round(16 * gui.scale))
+			# Seed artist field
+			ddt.text((x, y), _("Seed Artist (optional)"), colours.box_text_label, 10)
+			y += round(12 * gui.scale)
+			rect1 = (x, y, field_width, round(16 * gui.scale))
 			self.fields.add(rect1)
 			if self.coll(rect1) and (self.click or inp.level_2_right_click):
 				self.account_text_field = 11
@@ -26544,11 +26524,17 @@ class Over:
 				x + round(3 * gui.scale), y, colours.box_input_text, self.account_text_field == 11,
 				width=rect1[2] - 6 * gui.scale, click=self.click)
 			prefs.lastfm_gen_seed = tauon.text_lastfm_gen_seed.text.strip()
-
-			y += round(18 * gui.scale)
-			ddt.text((x + 0 * gui.scale, y), _("Limit"), colours.box_text_label, 10)
 			y += round(15 * gui.scale)
-			rect1 = (x + 0 * gui.scale, y, field_width, round(16 * gui.scale))
+			ddt.text(
+				(x, y),
+				_("Leave blank to use currently playing artist"),
+				colours.box_text_label, 9, max_w=400 * gui.scale)
+			y += section_spacing
+
+			# Track limit field
+			ddt.text((x, y), _("Track Limit"), colours.box_text_label, 10)
+			y += round(12 * gui.scale)
+			rect1 = (x, y, field_width, round(16 * gui.scale))
 			self.fields.add(rect1)
 			if self.coll(rect1) and (self.click or inp.level_2_right_click):
 				self.account_text_field = 12
@@ -26561,24 +26547,148 @@ class Over:
 				prefs.lastfm_gen_limit = int(tauon.text_lastfm_gen_limit.text.strip())
 			except ValueError:
 				prefs.lastfm_gen_limit = 60
+			y += round(15 * gui.scale)
+			ddt.text(
+				(x, y),
+				_("Maximum tracks per playlist (default: 60)"),
+				colours.box_text_label, 9, max_w=400 * gui.scale)
+			y += section_spacing * 1.5
 
-			# ── Autoplay Settings ────────────────────────────────────
-			y += round(25 * gui.scale)
-			ddt.text((x, y), "Autoplay", colours.box_sub_text, 213)
+			# ═══════════════════════════════════════════════════════════════
+			# Section 2: AI Mood Playlists (LLM)
+			# ═══════════════════════════════════════════════════════════════
+			ddt.text((x, y), "✦ AI Mood Playlists", colours.box_sub_text, 213)
+			y += round(5 * gui.scale)
+			ddt.text(
+				(x, y),
+				_("Cluster your library into mood-based playlists using AI"),
+				colours.box_text_label, 10, max_w=450 * gui.scale)
+			y += round(15 * gui.scale)
+
+			# Local LLM toggle
+			prefs.use_local_llm = self.toggle_square(
+				x, y, prefs.use_local_llm,
+				_("Use Local LLM (privacy-friendly)"))
+			y += round(22 * gui.scale)
+			ddt.text(
+				(x, y),
+				_("Processes on your computer - no data sent externally"),
+				colours.box_text_label, 9, max_w=400 * gui.scale)
+			y += section_spacing
+
+			if prefs.use_local_llm:
+				# Local LLM URL
+				ddt.text((x, y), _("LLM API URL"), colours.box_text_label, 10)
+				y += round(12 * gui.scale)
+				rect1 = (x, y, field_width, round(16 * gui.scale))
+				self.fields.add(rect1)
+				if self.coll(rect1) and (self.click or inp.level_2_right_click):
+					self.account_text_field = 15
+				ddt.bordered_rect(rect1, colours.box_background, colours.box_text_border, round(1 * gui.scale))
+				tauon.text_local_llm_url.text = prefs.local_llm_url
+				tauon.text_local_llm_url.draw(
+					x + round(3 * gui.scale), y, colours.box_input_text, self.account_text_field == 15,
+					width=rect1[2] - 6 * gui.scale, click=self.click)
+				prefs.local_llm_url = tauon.text_local_llm_url.text.strip()
+				y += round(15 * gui.scale)
+				ddt.text(
+					(x, y),
+					_("LM Studio: http://localhost:1234/v1/chat/completions"),
+					colours.box_text_label, 9, max_w=400 * gui.scale)
+				y += round(13 * gui.scale)
+				ddt.text(
+					(x, y),
+					_("Ollama: http://localhost:11434/v1/chat/completions"),
+					colours.box_text_label, 9, max_w=400 * gui.scale)
+				y += section_spacing
+
+				# Model name (optional)
+				ddt.text((x, y), _("Model Name (optional)"), colours.box_text_label, 10)
+				y += round(12 * gui.scale)
+				rect1 = (x, y, field_width, round(16 * gui.scale))
+				self.fields.add(rect1)
+				if self.coll(rect1) and (self.click or inp.level_2_right_click):
+					self.account_text_field = 16
+				ddt.bordered_rect(rect1, colours.box_background, colours.box_text_border, round(1 * gui.scale))
+				tauon.text_local_llm_model.text = prefs.local_llm_model
+				tauon.text_local_llm_model.draw(
+					x + round(3 * gui.scale), y, colours.box_input_text, self.account_text_field == 16,
+					width=rect1[2] - 6 * gui.scale, click=self.click)
+				prefs.local_llm_model = tauon.text_local_llm_model.text.strip()
+				y += section_spacing
+			else:
+				# Anthropic API key (Claude)
+				ddt.text((x, y), _("Anthropic API Key (Claude)"), colours.box_text_label, 10)
+				y += round(12 * gui.scale)
+				rect1 = (x, y, field_width, round(16 * gui.scale))
+				self.fields.add(rect1)
+				if self.coll(rect1) and (self.click or inp.level_2_right_click):
+					self.account_text_field = 13
+				ddt.bordered_rect(rect1, colours.box_background, colours.box_text_border, round(1 * gui.scale))
+				tauon.text_ai_gen_api_key.text = prefs.ai_gen_api_key
+				tauon.text_ai_gen_api_key.draw(
+					x + round(3 * gui.scale), y, colours.box_input_text, self.account_text_field == 13,
+					width=rect1[2] - 6 * gui.scale, click=self.click)
+				prefs.ai_gen_api_key = tauon.text_ai_gen_api_key.text.strip()
+				y += round(15 * gui.scale)
+				ddt.text(
+					(x, y),
+					_("Get API key from: https://console.anthropic.com/"),
+					colours.box_text_label, 9, max_w=400 * gui.scale)
+				y += section_spacing
+
+			# Mood count
+			ddt.text((x, y), _("Number of Moods"), colours.box_text_label, 10)
+			y += round(12 * gui.scale)
+			rect1 = (x, y, field_width, round(16 * gui.scale))
+			self.fields.add(rect1)
+			if self.coll(rect1) and (self.click or inp.level_2_right_click):
+				self.account_text_field = 14
+			ddt.bordered_rect(rect1, colours.box_background, colours.box_text_border, round(1 * gui.scale))
+			tauon.text_ai_gen_moods.text = str(prefs.ai_gen_moods)
+			tauon.text_ai_gen_moods.draw(
+				x + round(3 * gui.scale), y, colours.box_input_text, self.account_text_field == 14,
+				width=rect1[2] - 6 * gui.scale, click=self.click)
+			try:
+				val = int(tauon.text_ai_gen_moods.text.strip())
+				prefs.ai_gen_moods = max(2, min(12, val))  # Clamp between 2-12
+			except ValueError:
+				prefs.ai_gen_moods = 6
+			y += round(15 * gui.scale)
+			ddt.text(
+				(x, y),
+				_("How many mood playlists to generate (2-12, default: 6)"),
+				colours.box_text_label, 9, max_w=400 * gui.scale)
+			y += section_spacing * 1.5
+
+			# ═══════════════════════════════════════════════════════════════
+			# Section 3: Autoplay (Smart Queue)
+			# ═══════════════════════════════════════════════════════════════
+			ddt.text((x, y), "▶️ Autoplay", colours.box_sub_text, 213)
+			y += round(5 * gui.scale)
+			ddt.text(
+				(x, y),
+				_("Automatically queue similar tracks when playlist ends"),
+				colours.box_text_label, 10, max_w=450 * gui.scale)
 			y += round(15 * gui.scale)
 
 			# Enable/Disable toggle
 			if _autoplay_available:
 				prefs.autoplay_enable = self.toggle_square(
 					x, y, prefs.autoplay_enable,
-					_("Enable Autoplay (Spotify-like)"))
-				y += round(25 * gui.scale)
+					_("Enable Autoplay"))
+				y += round(22 * gui.scale)
+				ddt.text(
+					(x, y),
+					_("100% offline - uses your library metadata only"),
+					colours.box_text_label, 9, max_w=400 * gui.scale)
+				y += section_spacing
 
 				if prefs.autoplay_enable:
 					# Threshold setting
-					ddt.text((x + 0 * gui.scale, y), _("Trigger when < N tracks left"), colours.box_text_label, 10)
-					y += round(15 * gui.scale)
-					rect1 = (x + 0 * gui.scale, y, field_width, round(16 * gui.scale))
+					ddt.text((x, y), _("Trigger when < N tracks left"), colours.box_text_label, 10)
+					y += round(12 * gui.scale)
+					rect1 = (x, y, field_width, round(16 * gui.scale))
 					self.fields.add(rect1)
 					if self.coll(rect1) and (self.click or inp.level_2_right_click):
 						self.account_text_field = 17
@@ -26589,13 +26699,14 @@ class Over:
 						width=rect1[2] - 6 * gui.scale, click=self.click)
 					try:
 						val = int(tauon.text_autoplay_threshold.text.strip())
-						if val < 1:
-							val = 1
-						elif val > 10:
-							val = 10
-						prefs.autoplay_threshold = val
+						prefs.autoplay_threshold = max(1, min(10, val))  # Clamp 1-10
 					except (ValueError, AttributeError):
 						prefs.autoplay_threshold = 2
+					y += round(15 * gui.scale)
+					ddt.text(
+						(x, y),
+						_("Autoplay triggers when queue has fewer than N tracks (1-10)"),
+						colours.box_text_label, 9, max_w=400 * gui.scale)
 
 					y += round(18 * gui.scale)
 					ddt.text(
@@ -44722,6 +44833,23 @@ def main(holder: Holder) -> None:
 			"""Show a toast notification in Tauon's UI."""
 			show_message(msg)
 
+		def show_mood_distribution():
+			"""Show library mood distribution analysis."""
+			try:
+				if _mood_visualizer_available:
+					t_mood_visualizer.show_mood_distribution(
+						pctl=pctl,
+						master_library=pctl.master_library,
+						star_store=pctl.star_store,
+						notify_fn=_notify,
+						tauon=tauon,  # Pass tauon instance for message boxes
+					)
+				else:
+					show_message("Mood visualizer not available - install numpy")
+			except Exception as e:
+				log.error(f"Mood distribution failed: {e}", exc_info=True)
+				show_message(f"Mood analysis error: {str(e)[:50]}")
+
 		def gen_lastfm_radio():
 			seed = prefs.lastfm_gen_seed
 			if not seed:
@@ -44779,70 +44907,164 @@ def main(holder: Holder) -> None:
 				notify_fn=_notify,
 			)
 
-		tab_menu.add_to_sub(0, MenuItem(_("↯ Last.fm Radio (current artist)"), gen_lastfm_radio))
-		extra_tab_menu.add_to_sub(0, MenuItem(_("↯ Last.fm Radio (current artist)"), gen_lastfm_radio))
-		tab_menu.add_to_sub(0, MenuItem(_("✦ AI Mood Playlists (Claude/Local)"), gen_ai_mood))
-		extra_tab_menu.add_to_sub(0, MenuItem(_("✦ AI Mood Playlists (Claude/Local)"), gen_ai_mood))
-		tab_menu.add_to_sub(0, MenuItem(_("⊕ Audio Feature Clusters"), gen_audio_clusters))
-		extra_tab_menu.add_to_sub(0, MenuItem(_("⊕ Audio Feature Clusters"), gen_audio_clusters))
+		# New Audio-Based Recommender (v2) - replaces LLM mood playlists
+		def gen_mood_playlists():
+			if not _playlist_gen_v2_available:
+				show_message("Audio recommender not available. Install: pip install scikit-learn numpy")
+				return
+			t_playlist_gen_v2.generate_mood_playlists(
+				pctl=pctl,
+				master_library=pctl.master_library,
+				star_store=pctl.star_store,
+				num_playlists=4,
+				notify_fn=_notify,
+			)
 
-	tab_menu.add_to_sub(0, MenuItem(_("Top Played Albums"), tauon.gen_folder_top, pass_ref=True))
-	extra_tab_menu.add_to_sub(0, MenuItem(_("Top Played Albums"), tauon.gen_folder_top, pass_ref=True))
+		def gen_energy_playlists():
+			if not _playlist_gen_v2_available:
+				show_message("Audio recommender not available. Install: pip install scikit-learn numpy")
+				return
+			t_playlist_gen_v2.generate_energy_playlists(
+				pctl=pctl,
+				master_library=pctl.master_library,
+				star_store=pctl.star_store,
+				num_levels=3,
+				notify_fn=_notify,
+			)
 
-	tab_menu.add_to_sub(0, MenuItem(_("Top Rated Tracks"), tauon.gen_top_rating, pass_ref=True))
-	extra_tab_menu.add_to_sub(0, MenuItem(_("Top Rated Tracks"), tauon.gen_top_rating, pass_ref=True))
+		def gen_genre_clusters():
+			if not _playlist_gen_v2_available:
+				show_message("Audio recommender not available. Install: pip install scikit-learn numpy")
+				return
+			t_playlist_gen_v2.generate_genre_clusters(
+				pctl=pctl,
+				master_library=pctl.master_library,
+				star_store=pctl.star_store,
+				n_clusters=8,
+				notify_fn=_notify,
+			)
 
-	tab_menu.add_to_sub(0, MenuItem(_("Top Rated Albums"), tauon.gen_folder_top_rating, pass_ref=True))
-	extra_tab_menu.add_to_sub(0, MenuItem(_("Top Rated Albums"), tauon.gen_folder_top_rating, pass_ref=True))
+		def gen_decade_playlists():
+			if not _playlist_gen_v2_available:
+				show_message("Audio recommender not available. Install: pip install scikit-learn numpy")
+				return
+			t_playlist_gen_v2.generate_decade_playlists(
+				pctl=pctl,
+				master_library=pctl.master_library,
+				star_store=pctl.star_store,
+				notify_fn=_notify,
+			)
 
-	tab_menu.add_to_sub(0, MenuItem(_("File Modified"),tauon. gen_last_modified, pass_ref=True))
-	extra_tab_menu.add_to_sub(0, MenuItem(_("File Modified"), tauon.gen_last_modified, pass_ref=True))
+		def gen_similarity_radio():
+			if not _playlist_gen_v2_available:
+				show_message("Audio recommender not available. Install: pip install scikit-learn numpy")
+				return
+			# Get currently playing track
+			if pctl.playing_state > 0 and pctl.track_queue and pctl.queue_step < len(pctl.track_queue):
+				seed_id = pctl.track_queue[pctl.queue_step]
+				t_playlist_gen_v2.generate_similarity_radio(
+					pctl=pctl,
+					master_library=pctl.master_library,
+					star_store=pctl.star_store,
+					seed_track_id=seed_id,
+					limit=50,
+					notify_fn=_notify,
+				)
+			else:
+				show_message("Play a track first to use as seed")
+
+	tab_menu.add_to_sub(0, MenuItem(_("Last.fm Radio (current artist)"), gen_lastfm_radio, icon=gui.radiorandom_icon))
+	extra_tab_menu.add_to_sub(0, MenuItem(_("Last.fm Radio (current artist)"), gen_lastfm_radio, icon=gui.radiorandom_icon))
+
+	# New audio-based recommender menu (replaces LLM mood)
+	# Submenu indices: tab_menu has 0=Generate, 1=Sort, 2=Misc, so new one is 3
+	# extra_tab_menu has 0=From Current, so new one is 1
+	tab_menu.add_sub(_("Audio Recommendations"), 200)
+	extra_tab_menu.add_sub(_("Audio Recommendations"), 200)
+
+	tab_menu.add_to_sub(3, MenuItem(_("Mood Playlists (Audio Features)"), gen_mood_playlists, icon=gui.heart_icon))
+	extra_tab_menu.add_to_sub(1, MenuItem(_("Mood Playlists (Audio Features)"), gen_mood_playlists, icon=gui.heart_icon))
+
+	tab_menu.add_to_sub(3, MenuItem(_("Energy Playlists"), gen_energy_playlists, icon=gui.filter_icon))
+	extra_tab_menu.add_to_sub(1, MenuItem(_("Energy Playlists"), gen_energy_playlists, icon=gui.filter_icon))
+
+	tab_menu.add_to_sub(3, MenuItem(_("Genre Clusters (Audio)"), gen_genre_clusters, icon=gui.filter_icon))
+	extra_tab_menu.add_to_sub(1, MenuItem(_("Genre Clusters (Audio)"), gen_genre_clusters, icon=gui.filter_icon))
+
+	tab_menu.add_to_sub(3, MenuItem(_("Decade Playlists"), gen_decade_playlists, icon=gui.info_icon))
+	extra_tab_menu.add_to_sub(1, MenuItem(_("Decade Playlists"), gen_decade_playlists, icon=gui.info_icon))
+
+	tab_menu.add_to_sub(3, MenuItem(_("Similarity Radio (Current Track)"), gen_similarity_radio, icon=gui.radiorandom_icon))
+	extra_tab_menu.add_to_sub(1, MenuItem(_("Similarity Radio (Current Track)"), gen_similarity_radio, icon=gui.radiorandom_icon))
+
+	# Mood visualization
+	tab_menu.add_to_sub(3, MenuItem(_("Show Mood Distribution"), show_mood_distribution, icon=gui.info_icon))
+	extra_tab_menu.add_to_sub(1, MenuItem(_("Show Mood Distribution"), show_mood_distribution, icon=gui.info_icon))
+
+	# Keep old LLM mood option for users who still want it
+	tab_menu.add_to_sub(0, MenuItem(_("AI Mood Playlists (Claude/Local) [Legacy]"), gen_ai_mood, icon=gui.info_icon))
+	extra_tab_menu.add_to_sub(0, MenuItem(_("AI Mood Playlists (Claude/Local) [Legacy]"), gen_ai_mood, icon=gui.info_icon))
+
+	tab_menu.add_to_sub(0, MenuItem(_("Audio Feature Clusters"), gen_audio_clusters, icon=gui.filter_icon))
+	extra_tab_menu.add_to_sub(0, MenuItem(_("Audio Feature Clusters"), gen_audio_clusters, icon=gui.filter_icon))
+
+	tab_menu.add_to_sub(0, MenuItem(_("Top Played Albums"), tauon.gen_folder_top, pass_ref=True, icon=gui.info_icon))
+	extra_tab_menu.add_to_sub(0, MenuItem(_("Top Played Albums"), tauon.gen_folder_top, pass_ref=True, icon=gui.info_icon))
+
+	tab_menu.add_to_sub(0, MenuItem(_("⭐ Top Rated Tracks"), tauon.gen_top_rating, pass_ref=True, icon=gui.info_icon))
+	extra_tab_menu.add_to_sub(0, MenuItem(_("⭐ Top Rated Tracks"), tauon.gen_top_rating, pass_ref=True, icon=gui.info_icon))
+
+	tab_menu.add_to_sub(0, MenuItem(_("⭐ Top Rated Albums"), tauon.gen_folder_top_rating, pass_ref=True, icon=gui.info_icon))
+	extra_tab_menu.add_to_sub(0, MenuItem(_("⭐ Top Rated Albums"), tauon.gen_folder_top_rating, pass_ref=True, icon=gui.info_icon))
+
+	tab_menu.add_to_sub(0, MenuItem(_("📁 File Modified"),tauon. gen_last_modified, pass_ref=True, icon=gui.info_icon))
+	extra_tab_menu.add_to_sub(0, MenuItem(_("📁 File Modified"), tauon.gen_last_modified, pass_ref=True, icon=gui.info_icon))
 
 	# tab_menu.add_to_sub(_("File Path"), 0, stauon.tandard_sort, pass_ref=True)
 	# extra_tab_menu.add_to_sub(_("File Path"), 0, tauon.standard_sort, pass_ref=True)
 
-	tab_menu.add_to_sub(0, MenuItem(_("Longest Tracks"), tauon.gen_sort_len, pass_ref=True))
-	extra_tab_menu.add_to_sub(0, MenuItem(_("Longest Tracks"), tauon.gen_sort_len, pass_ref=True))
+	tab_menu.add_to_sub(0, MenuItem(_("📏 Longest Tracks"), tauon.gen_sort_len, pass_ref=True, icon=gui.info_icon))
+	extra_tab_menu.add_to_sub(0, MenuItem(_("📏 Longest Tracks"), tauon.gen_sort_len, pass_ref=True, icon=gui.info_icon))
 
-	tab_menu.add_to_sub(0, MenuItem(_("Longest Albums"), tauon.gen_folder_duration, pass_ref=True))
-	extra_tab_menu.add_to_sub(0, MenuItem(_("Longest Albums"), tauon.gen_folder_duration, pass_ref=True))
+	tab_menu.add_to_sub(0, MenuItem(_("💿 Longest Albums"), tauon.gen_folder_duration, pass_ref=True, icon=gui.info_icon))
+	extra_tab_menu.add_to_sub(0, MenuItem(_("💿 Longest Albums"), tauon.gen_folder_duration, pass_ref=True, icon=gui.info_icon))
 
-	tab_menu.add_to_sub(0, MenuItem(_("Year by Oldest"), tauon.gen_sort_date, pass_ref=True))
-	extra_tab_menu.add_to_sub(0, MenuItem(_("Year by Oldest"), tauon.gen_sort_date, pass_ref=True))
+	tab_menu.add_to_sub(0, MenuItem(_("📅 Year by Oldest"), tauon.gen_sort_date, pass_ref=True, icon=gui.info_icon))
+	extra_tab_menu.add_to_sub(0, MenuItem(_("📅 Year by Oldest"), tauon.gen_sort_date, pass_ref=True, icon=gui.info_icon))
 
-	tab_menu.add_to_sub(0, MenuItem(_("Year by Latest"), tauon.gen_sort_date_new, pass_ref=True))
-	extra_tab_menu.add_to_sub(0, MenuItem(_("Year by Latest"), tauon.gen_sort_date_new, pass_ref=True))
+	tab_menu.add_to_sub(0, MenuItem(_("📅 Year by Latest"), tauon.gen_sort_date_new, pass_ref=True, icon=gui.info_icon))
+	extra_tab_menu.add_to_sub(0, MenuItem(_("📅 Year by Latest"), tauon.gen_sort_date_new, pass_ref=True, icon=gui.info_icon))
 
 	# tab_menu.add_to_sub(_("Year by Artist"), 0, tauon.year_sort, pass_ref=True)
 	# extra_tab_menu.add_to_sub(_("Year by Artist"), 0, tauon.year_sort, pass_ref=True)
 
-	tab_menu.add_to_sub(0, MenuItem(_("Shuffled Tracks"), tauon.gen_500_random, pass_ref=True))
-	extra_tab_menu.add_to_sub(0, MenuItem(_("Shuffled Tracks"), tauon.gen_500_random, pass_ref=True))
+	tab_menu.add_to_sub(0, MenuItem(_("🔀 Shuffled Tracks"), tauon.gen_500_random, pass_ref=True, icon=gui.info_icon))
+	extra_tab_menu.add_to_sub(0, MenuItem(_("🔀 Shuffled Tracks"), tauon.gen_500_random, pass_ref=True, icon=gui.info_icon))
 
-	tab_menu.add_to_sub(0, MenuItem(_("Shuffled Albums"), tauon.gen_folder_shuffle, pass_ref=True))
-	extra_tab_menu.add_to_sub(0, MenuItem(_("Shuffled Albums"), tauon.gen_folder_shuffle, pass_ref=True))
+	tab_menu.add_to_sub(0, MenuItem(_("🔀 Shuffled Albums"), tauon.gen_folder_shuffle, pass_ref=True, icon=gui.info_icon))
+	extra_tab_menu.add_to_sub(0, MenuItem(_("🔀 Shuffled Albums"), tauon.gen_folder_shuffle, pass_ref=True, icon=gui.info_icon))
 
-	tab_menu.add_to_sub(0, MenuItem(_("Lucky Random"), tauon.gen_best_random, pass_ref=True))
-	extra_tab_menu.add_to_sub(0, MenuItem(_("Lucky Random"), tauon.gen_best_random, pass_ref=True))
+	tab_menu.add_to_sub(0, MenuItem(_("🍀 Lucky Random"), tauon.gen_best_random, pass_ref=True, icon=gui.info_icon))
+	extra_tab_menu.add_to_sub(0, MenuItem(_("🍀 Lucky Random"), tauon.gen_best_random, pass_ref=True, icon=gui.info_icon))
 
-	tab_menu.add_to_sub(0, MenuItem(_("Reverse Tracks"), tauon.gen_reverse, pass_ref=True))
-	extra_tab_menu.add_to_sub(0, MenuItem(_("Reverse Tracks"), tauon.gen_reverse, pass_ref=True))
+	tab_menu.add_to_sub(0, MenuItem(_("🔃 Reverse Tracks"), tauon.gen_reverse, pass_ref=True, icon=gui.info_icon))
+	extra_tab_menu.add_to_sub(0, MenuItem(_("🔃 Reverse Tracks"), tauon.gen_reverse, pass_ref=True, icon=gui.info_icon))
 
-	tab_menu.add_to_sub(0, MenuItem(_("Reverse Albums"), tauon.gen_folder_reverse, pass_ref=True))
-	extra_tab_menu.add_to_sub(0, MenuItem(_("Reverse Albums"), tauon.gen_folder_reverse, pass_ref=True))
+	tab_menu.add_to_sub(0, MenuItem(_("🔃 Reverse Albums"), tauon.gen_folder_reverse, pass_ref=True, icon=gui.info_icon))
+	extra_tab_menu.add_to_sub(0, MenuItem(_("🔃 Reverse Albums"), tauon.gen_folder_reverse, pass_ref=True, icon=gui.info_icon))
 
-	tab_menu.add_to_sub(0, MenuItem(_("Duplicate"), tauon.gen_dupe, pass_ref=True))
-	extra_tab_menu.add_to_sub(0, MenuItem(_("Duplicate"), tauon.gen_dupe, pass_ref=True))
+	tab_menu.add_to_sub(0, MenuItem(_("📋 Duplicate"), tauon.gen_dupe, pass_ref=True, icon=gui.info_icon))
+	extra_tab_menu.add_to_sub(0, MenuItem(_("📋 Duplicate"), tauon.gen_dupe, pass_ref=True, icon=gui.info_icon))
 
 	# tab_menu.add_to_sub("Filepath", 1, tauon.gen_sort_path, pass_ref=True)
 	# tab_menu.add_to_sub("Artist → gui.abc", 0, tauon.gen_sort_artist, pass_ref=True)
 	# tab_menu.add_to_sub("Album → gui.abc", 0, tauon.gen_sort_album, pass_ref=True)
-	tab_menu.add_to_sub(0, MenuItem(_("Loved"), tauon.gen_love, pass_ref=True))
-	extra_tab_menu.add_to_sub(0, MenuItem(_("Loved"), tauon.gen_love, pass_ref=True))
-	tab_menu.add_to_sub(0, MenuItem(_("Has Comment"), tauon.gen_comment, pass_ref=True))
-	extra_tab_menu.add_to_sub(0, MenuItem(_("Has Comment"), tauon.gen_comment, pass_ref=True))
-	tab_menu.add_to_sub(0, MenuItem(_("Has Lyrics"), tauon.gen_lyrics, pass_ref=True))
-	extra_tab_menu.add_to_sub(0, MenuItem(_("Has Lyrics"), tauon.gen_lyrics, pass_ref=True))
+	tab_menu.add_to_sub(0, MenuItem(_("❤️ Loved"), tauon.gen_love, pass_ref=True, icon=gui.info_icon))
+	extra_tab_menu.add_to_sub(0, MenuItem(_("❤️ Loved"), tauon.gen_love, pass_ref=True, icon=gui.info_icon))
+	tab_menu.add_to_sub(0, MenuItem(_("💬 Has Comment"), tauon.gen_comment, pass_ref=True, icon=gui.info_icon))
+	extra_tab_menu.add_to_sub(0, MenuItem(_("💬 Has Comment"), tauon.gen_comment, pass_ref=True, icon=gui.info_icon))
+	tab_menu.add_to_sub(0, MenuItem(_("🎵 Has Lyrics"), tauon.gen_lyrics, pass_ref=True, icon=gui.info_icon))
+	extra_tab_menu.add_to_sub(0, MenuItem(_("🎵 Has Lyrics"), tauon.gen_lyrics, pass_ref=True, icon=gui.info_icon))
 
 	playlist_menu.add(MenuItem("Paste", tauon.paste, tauon.paste_deco))
 
@@ -44932,11 +45154,36 @@ def main(holder: Holder) -> None:
 					notify_fn=_track_notify,
 				)
 
-		track_menu.add_sub(_("Generate Playlist…"), 160)
-		track_menu.add_to_sub(-1, MenuItem(_("↯ Last.fm Radio (this artist)"), gen_lastfm_from_track, pass_ref=True))
-		track_menu.add_to_sub(-1, MenuItem(_("✦ AI Mood Playlists"), gen_ai_from_track, pass_ref=True))
-		track_menu.add_to_sub(-1, MenuItem(_("⊕ Audio Feature Clusters"), lambda ref: t_playlist_gen.generate_audio(
-			pctl=pctl, master_library=pctl.master_library, star_store=pctl.star_store, n_clusters=5, notify_fn=_track_notify), pass_ref=True))
+		# Reorganized track menu - cleaner structure with icons
+		track_menu.add_sub(_("Create Similar Playlist"), 200)
+		track_menu.add_to_sub(-1, MenuItem(_("Similarity Radio (this track)"), lambda ref: t_playlist_gen_v2.generate_similarity_radio(
+			pctl=pctl, master_library=pctl.master_library, star_store=pctl.star_store,
+			seed_track_id=ref.track_id if ref else None, limit=50, notify_fn=_track_notify) if _playlist_gen_v2_available else lambda: show_message("Audio recommender not available"), pass_ref=True, icon=gui.radiorandom_icon))
+		track_menu.add_to_sub(-1, MenuItem(_("Artist Radio (Last.fm)"), lambda ref: t_playlist_gen_v2.generate_artist_radio(
+			pctl=pctl, master_library=pctl.master_library, star_store=pctl.star_store,
+			artist_name=getattr(pctl.master_library.get(ref.track_id), 'artist', '') if ref and ref.track_id else '', limit=50, notify_fn=_track_notify) if _playlist_gen_v2_available else lambda: show_message("Artist radio not available"), pass_ref=True, icon=gui.radiorandom_icon))
+
+		track_menu.add_sub(_("Mood & Genre"), 200)
+		track_menu.add_to_sub(-1, MenuItem(_("Mood Playlists (8 moods)"), lambda ref: t_playlist_gen_v2.generate_mood_playlists(
+			pctl=pctl, master_library=pctl.master_library, star_store=pctl.star_store,
+			num_playlists=8, notify_fn=_track_notify) if _playlist_gen_v2_available else lambda: show_message("Audio recommender not available"), pass_ref=True, icon=gui.heart_icon))
+		track_menu.add_to_sub(-1, MenuItem(_("Energy Playlists"), lambda ref: t_playlist_gen_v2.generate_energy_playlists(
+			pctl=pctl, master_library=pctl.master_library, star_store=pctl.star_store,
+			num_levels=3, notify_fn=_track_notify) if _playlist_gen_v2_available else lambda: show_message("Audio recommender not available"), pass_ref=True, icon=gui.filter_icon))
+		track_menu.add_to_sub(-1, MenuItem(_("Genre Clusters"), lambda ref: t_playlist_gen_v2.generate_genre_clusters(
+			pctl=pctl, master_library=pctl.master_library, star_store=pctl.star_store,
+			n_clusters=8, notify_fn=_track_notify) if _playlist_gen_v2_available else lambda: show_message("Audio recommender not available"), pass_ref=True, icon=gui.filter_icon))
+
+		track_menu.add_sub(_("Analysis"), 200)
+		track_menu.add_to_sub(-1, MenuItem(_("Decade Playlists"), lambda ref: t_playlist_gen_v2.generate_decade_playlists(
+			pctl=pctl, master_library=pctl.master_library, star_store=pctl.star_store,
+			notify_fn=_track_notify) if _playlist_gen_v2_available else lambda: show_message("Audio recommender not available"), pass_ref=True, icon=gui.info_icon))
+		track_menu.add_to_sub(-1, MenuItem(_("Show Mood Distribution"), show_mood_distribution, pass_ref=True, icon=gui.info_icon))
+		track_menu.add_to_sub(-1, MenuItem(_("Audio Feature Clusters"), lambda ref: t_playlist_gen.generate_audio(
+			pctl=pctl, master_library=pctl.master_library, star_store=pctl.star_store, n_clusters=5, notify_fn=_track_notify), pass_ref=True, icon=gui.filter_icon))
+
+		# Legacy options
+		track_menu.add_to_sub(-1, MenuItem(_("AI Mood Playlists (Claude/Local) [Legacy]"), gen_ai_from_track, pass_ref=True, icon=gui.info_icon))
 
 	track_menu.add_sub(_("Meta…"), 160)
 

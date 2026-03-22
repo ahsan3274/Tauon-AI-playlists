@@ -34,3 +34,7 @@ miniaudio.tar.gz
 debug
 lrclib-solver
 *.dmg
+
+# Documentation
+CHANGES_AND_PROGRESS.md
+TESTING_INSTRUCTIONS.md

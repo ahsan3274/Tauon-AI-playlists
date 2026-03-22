@@ -367,6 +367,24 @@ if window_p.is_file() and not fs_mode:
 else:
 	logging.info("No window state file")
 
+if sys.platform == "darwin":
+	# Set macOS dock icon
+	try:
+		from AppKit import NSApplication, NSImage
+		app = NSApplication.sharedApplication()
+		icon_path = str(asset_directory / "tau-mac.icns")
+		if os.path.exists(icon_path):
+			icon = NSImage.imageWithContentsOfFile_(icon_path)
+			if icon:
+				app.setApplicationIconImage_(icon)
+				logging.info("Set macOS dock icon successfully")
+			else:
+				logging.warning(f"Failed to load icon from {icon_path}")
+		else:
+			logging.warning(f"Icon file not found: {icon_path}")
+	except Exception as e:
+		logging.warning(f"Could not set dock icon: {e}")
+
 
 ##  Maybe this is needed any more?
 # if d == "GNOME": #and os.environ.get("XDG_SESSION_TYPE") and os.environ.get("XDG_SESSION_TYPE") == "wayland":
