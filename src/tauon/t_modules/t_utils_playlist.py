@@ -24,32 +24,30 @@ log = logging.getLogger("t_utils_playlist")
 
 def get_library_tracks(pctl, master_library, star_store) -> list[dict]:
     """
-    Get all tracks from library that are referenced in playlists.
-    
+    Get all tracks from library.
+
     Returns a list of dicts with essential track info:
-    {id, path, title, artist, album, genre, year, play_count, duration}
-    
+    {id, path, title, artist, album, genre, year, play_count, duration, bpm, mode, loudness, misc}
+
     This is a shared utility to avoid duplication across playlist generators.
     """
-    # Collect all track IDs that appear in any playlist
-    referenced: set[int] = set()
-    for pl in pctl.multi_playlist:
-        if hasattr(pl, 'playlist_ids'):
-            referenced.update(pl.playlist_ids)
-        elif hasattr(pl, 'playlist'):
-            referenced.update(pl.playlist)
-    
+    # Collect all track IDs from master_library
+    # Don't filter by playlist membership - use entire library
     tracks = []
     for tid, tr in master_library.items():
-        if tid not in referenced:
-            continue
-        
         sc = getattr(tr, 'play_count', 0) or 0
         duration = getattr(tr, 'length', 0) or 0
-        
+
+        # Get misc dict if it exists
+        misc_dict = dict(getattr(tr, 'misc', {})) if hasattr(tr, 'misc') else {}
+
+        # Get path - use "fullpath" key for cache compatibility
+        fullpath = getattr(tr, "fullpath", "") or getattr(tr, "filename", "")
+
         tracks.append({
             "id":         tid,
-            "path":       getattr(tr, "fullpath", getattr(tr, "filename", "")),
+            "fullpath":   fullpath,  # Use "fullpath" for cache compatibility
+            "path":       fullpath,  # Also keep "path" for backwards compatibility
             "title":      getattr(tr, "title",  "") or "",
             "artist":     getattr(tr, "artist", "") or "",
             "album":      getattr(tr, "album",  "") or "",
@@ -57,42 +55,35 @@ def get_library_tracks(pctl, master_library, star_store) -> list[dict]:
             "year":       str(getattr(tr, "date", "") or "")[:4],
             "play_count": sc,
             "duration":   duration,
+            # Audio features metadata (for get_metadata_features)
+            "bpm":        misc_dict.get('bpm', 0) or getattr(tr, 'bpm', 0) or misc_dict.get('BPM', 0) or 0,
+            "mode":       misc_dict.get('mode', None) or getattr(tr, 'mode', None),
+            "loudness":   misc_dict.get('replaygain_track_gain', None) or misc_dict.get('loudness', None),
+            "misc":       misc_dict,
         })
-    
+
     return tracks
 
 
 def create_playlist(name: str, track_ids: list[int], pctl) -> int:
     """
     Create a new playlist and append to Tauon's playlist list.
-    
+
     Args:
         name: Playlist name
         track_ids: List of track IDs to include
         pctl: Player controller instance
-    
+
     Returns:
         Index of created playlist, or -1 on failure
     """
-    if hasattr(pctl, "new_playlist"):
-        # Newer Tauon API
-        idx = pctl.new_playlist(name)
-        if idx is not None and idx < len(pctl.multi_playlist):
-            pctl.multi_playlist[idx].playlist_ids[:] = track_ids
-            log.info("Created playlist '%s' with %d tracks (new API)", name, len(track_ids))
-            return idx
-    
-    # Fallback: Try to import TauonPlaylist or use minimal fallback
     try:
         from tauon.t_modules.t_main import TauonPlaylist
         from tauon.t_modules.t_extra import uid_gen
-        pl = TauonPlaylist(title=name, playlist_ids=track_ids, uuid_int=uid_gen())
-        pctl.multi_playlist.append(pl)
-        log.info("Created playlist '%s' with %d tracks (TauonPlaylist)", name, len(track_ids))
-        return len(pctl.multi_playlist) - 1
-        
+        uid = uid_gen()
     except ImportError:
-        # Ultimate fallback - minimal object with ALL required TauonPlaylist attributes
+        # Fallback: create minimal playlist object
+        import random
         class MinimalPlaylist:
             def __init__(self, title, playlist_ids):
                 self.title = title
@@ -101,23 +92,45 @@ def create_playlist(name: str, track_ids: list[int], pctl) -> int:
                 self.position = 0
                 self.hide_title = False
                 self.selected = 0
-                self.uuid_int = random.randint(100_000, 999_999)
+                self.uuid_int = random.randint(100000, 999999)
+                self.last_folder = []
                 self.hidden = False
                 self.locked = False
                 self.parent_playlist_id = 0
                 self.persist_time_positioning = False
                 self.playlist_file = ""
-                self.file_size = 0
                 self.auto_export = False
                 self.auto_import = False
                 self.export_type = "xspf"
                 self.relative_export = False
-                self.last_folder = []
+                self.file_size = 0
         
-        pl = MinimalPlaylist(name, track_ids)
+        pl = MinimalPlaylist(name, track_ids[:])
         pctl.multi_playlist.append(pl)
-        log.info("Created playlist '%s' with %d tracks (MinimalPlaylist)", name, len(track_ids))
+        log.info("Created playlist '%s' with %d tracks (fallback)", name, len(track_ids))
         return len(pctl.multi_playlist) - 1
+    except Exception as e:
+        log.error(f"Failed to create playlist '{name}': {e}")
+        return -1
+
+    # Create TauonPlaylist with all required fields
+    pl = TauonPlaylist(
+        title=name,
+        playing=0,
+        playlist_ids=track_ids[:],  # Copy the list
+        position=0,
+        hide_title=False,
+        selected=0,
+        uuid_int=uid,
+        last_folder=[],
+        hidden=False,
+        locked=False,
+        parent_playlist_id=0,
+        persist_time_positioning=False,
+    )
+    pctl.multi_playlist.append(pl)
+    log.info("Created playlist '%s' with %d tracks", name, len(track_ids))
+    return len(pctl.multi_playlist) - 1
 
 
 # ─────────────────────────────────────────────────────────────────────────────

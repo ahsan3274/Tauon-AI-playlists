@@ -34,8 +34,69 @@ miniaudio.tar.gz
 debug
 lrclib-solver
 *.dmg
+*.log
+*.pid
+*.json
+*.tmp
+*.p.backup*
+*.p.bpm_backup
+state.p
+star.p
+album-star.p
+program.pid
+input.txt
+spot-token*
+encoder/
+scaled-icons/
+metadata-cache/
+audio_features.json
+genre-cache.json
+error-cache.json
+mood_debug.txt
+playlist_debug.txt
 
-# Documentation
+# Documentation - generated or session-specific
 CHANGES_AND_PROGRESS.md
 TESTING_INSTRUCTIONS.md
 mood_algorithm_test/
+CHANGE_MANAGEMENT.md
+*_FIX.md
+*_SOLUTIONS.md
+*_INTEGRATION.md
+*_MODERNIZATION.md
+*_AUDIT.md
+DEBUG*.md
+debug_*.py
+test_*.py
+fetch_*.py
+extract_*.py
+fix_*.py
+enrich_*.py
+quick_*.py
+export_library.py
+library_*.json
+lastfm_*.json
+*.pdf
+*.html
+
+# IDE
+.vscode/
+*.swp
+*.swo
+*~
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Backup files
+*.bak
+*.backup
+*.old
