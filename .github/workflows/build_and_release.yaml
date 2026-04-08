@@ -142,7 +142,7 @@ jobs:
 
       - name: Clone Flatpak repo and switch to beta branch
         run: |
-          git clone --recurse-submodules https://github.com/flathub/com.github.taiko2k.tauonmb.git tauon-flatpak
+          git clone --recurse-submodules https://github.com/ahsan3274/flathub.tauon-ai.git tauon-flatpak
           cd tauon-flatpak; git checkout beta
 
       - name: "[DEBUG] List all files"
@@ -162,18 +162,18 @@ jobs:
           # Modify JSON file
           jq --arg repo "$REPO_URL" --arg commit "$COMMIT_SHA" '
             (.modules[] | select(type == "object" and .name == "tauonmb-git").sources[] | select(type == "object") | select(.type == "git")) |= {type: "git", url: $repo, commit: $commit}
-          ' tauon-flatpak/com.github.taiko2k.tauonmb.json > updated.json
-          mv updated.json tauon-flatpak/com.github.taiko2k.tauonmb.json
+          ' tauon-flatpak/com.github.ahsan3274.tauon-ai.json > updated.json
+          mv updated.json tauon-flatpak/com.github.ahsan3274.tauon-ai.json
 
       - name: Verify JSON changes
-        run: cat tauon-flatpak/com.github.taiko2k.tauonmb.json
+        run: cat tauon-flatpak/com.github.ahsan3274.tauon-ai.json
 
       # https://github.com/marketplace/actions/flatpak-builder
       - name: Build Flatpak
         uses: flatpak/flatpak-github-actions/flatpak-builder@v6.6
         with:
-          bundle: TauonMusicBox-x64.flatpak
-          manifest-path: tauon-flatpak/com.github.taiko2k.tauonmb.json
+          bundle: Tauon-AI-x64.flatpak
+          manifest-path: tauon-flatpak/com.github.ahsan3274.tauon-ai.json
           cache-key: flatpak-builder-${{ github.sha }}
 
   build-macos:

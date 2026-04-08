@@ -1,5 +1,5 @@
 [project]
-	name = "tauon-music-box"
+	name = "tauon-ai"
 	# Should also be bumped in:
 	# * __main__.py
 	# * extra/com.github.taiko2k.tauonmb.appdata.xml for Flatpak

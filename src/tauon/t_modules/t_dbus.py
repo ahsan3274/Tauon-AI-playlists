@@ -630,11 +630,11 @@ class Gnome:
 			logging.exception("Failure to connect to login1")
 
 		# t_bus = dbus.Bus(dbus.Bus.TYPE_SESSION)
-		# t_bus_name = dbus.service.BusName('com.github.taiko2k.tauonmb', t_bus)  # This object must be kept alive
+		# t_bus_name = dbus.service.BusName('com.github.ahsan3274.tauon-ai', t_bus)  # This object must be kept alive
 		#
 		# class T(dbus.service.Object):
 		# @dbus.service.method(
-		# "com.github.taiko2k.tauonmb",
+		# "com.github.ahsan3274.tauon-ai",
 		# in_signature='a{sv}', out_signature='')
 		# def start(self, options={}) -> None:
 		# logging.info("START")

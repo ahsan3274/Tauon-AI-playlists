@@ -43014,10 +43014,10 @@ def main(holder: Holder) -> None:
 			logging.info("Detected running as Flatpak")
 
 			# [old / no longer used] Symlink fontconfig from host system as workaround for poor font rendering
-			if os.path.exists(os.path.join(home_directory, ".var/app/com.github.taiko2k.tauonmb/config")):
+			if os.path.exists(os.path.join(home_directory, ".var/app/com.github.ahsan3274.tauon-ai/config")):
 
 				host_fcfg = os.path.join(home_directory, ".config/fontconfig/")
-				flatpak_fcfg = os.path.join(home_directory, ".var/app/com.github.taiko2k.tauonmb/config/fontconfig")
+				flatpak_fcfg = os.path.join(home_directory, ".var/app/com.github.ahsan3274.tauon-ai/config/fontconfig")
 
 				if os.path.exists(host_fcfg):
 

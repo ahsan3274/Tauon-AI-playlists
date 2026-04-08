@@ -38,7 +38,7 @@ class Holder:
 	t_title:                str # "Tauon"
 	n_version:              str # "7.9.0"
 	t_version:              str # "v" + n_version
-	t_id:                   str # "tauonmb" | "com.github.taiko2k.tauonmb"
+	t_id:                   str # "tauonmb" | "com.github.ahsan3274.tauon-ai"
 	t_agent:                str # "TauonMusicBox/7.9.0"
 	dev_mode:               bool
 	instance_lock:          TextIOWrapper | None

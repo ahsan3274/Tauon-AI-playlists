@@ -67,7 +67,7 @@ if sys.platform != "win32":
 n_version = "9.1.1"  # Should also be bumped in pyproject.toml, extra/*.appdata.xml
 t_version = "v" + n_version
 t_title = "Tauon"
-t_id = "com.github.taiko2k.tauonmb"
+t_id = "com.github.ahsan3274.tauon-ai"
 t_agent = f"{t_title}/" + n_version
 t_creator = "Taiko2k"
 t_copyright = "Copyright 2015-2026 Taiko2k"
@@ -419,7 +419,7 @@ if err and "GLX" in err.decode():
 window_title = t_title
 window_title = window_title.encode("utf-8")
 
-flags = sdl3.SDL_WINDOW_RESIZABLE | sdl3.SDL_WINDOW_TRANSPARENT | sdl3.SDL_WINDOW_HIGH_PIXEL_DENSITY
+flags = sdl3.SDL_WINDOW_RESIZABLE | sdl3.SDL_WINDOW_HIGH_PIXEL_DENSITY
 
 if draw_border and not fs_mode:
 	flags |= sdl3.SDL_WINDOW_BORDERLESS
