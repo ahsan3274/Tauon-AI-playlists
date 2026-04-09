@@ -48937,27 +48937,21 @@ def main(holder: Holder) -> None:
 	# ── Expand Library from YouTube ──────────────────────────────────────
 	if _yt_expand_available:
 		def expand_library_youtube():
-			"""Open YouTube library expansion dialog."""
-			if not pctl.playing_state > 0:
-				show_message("Play a track first — recommendations based on current listening")
-				return
-			yt_expand = t_yt_expand.get_expand_manager()
-			# Get tracks similar to currently playing
+			"""Download currently playing track from YouTube."""
 			current = pctl.playing_object()
 			if not current:
-				show_message("No track currently playing")
+				tauon.show_message("No track currently playing")
 				return
-			# Build recommendation: find similar tracks from library, then suggest YouTube search
-			show_message("Finding recommendations from YouTube…")
-			# For now, search for artist's similar tracks — user picks which to download
-			# Phase 1: Just search and show results
 			artist = getattr(current, 'artist', '')
+			title = getattr(current, 'title', '')
 			if not artist:
-				show_message("Unknown artist")
+				tauon.show_message("Unknown artist")
 				return
+			yt_expand = t_yt_expand.get_expand_manager()
+			tauon.show_message(f"Downloading: {artist} - {title}")
 			yt_expand.start_session(
-				tracks=[(artist, getattr(current, 'title', ''))],
-				progress_cb=lambda status: show_message(
+				tracks=[(artist, title)],
+				progress_cb=lambda status: tauon.show_message(
 					f"Downloading: {status.get('complete', 0)}/{status.get('total', 0)} complete"
 				),
 			)
