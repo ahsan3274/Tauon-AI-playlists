@@ -49186,6 +49186,9 @@ def main(holder: Holder) -> None:
 				)
 
 			track_menu.add(MenuItem("───", None)) # Separator
+			track_menu.add(MenuItem(_("Mood Match"), mood_match_track, pass_ref=True, icon=gui.heart_icon))
+			track_menu.add(MenuItem(_("Mood Transition"), mood_transition_track, pass_ref=True, icon=gui.filter_icon))
+			track_menu.add(MenuItem(_("Discover Missing Moods"), discover_moods_library, icon=gui.info_icon))
 		# ─────────────────────────────────────────────────────────────────────
 
 	# ── Playlists submenu (all playlist generation in one place) ─────
