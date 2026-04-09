@@ -364,7 +364,7 @@ def lookup_musicbrainz(artist: str, title: str) -> Optional[dict]:
     try:
         query = f'recording:{title} artist:"{artist}"'
         resp = requests.get(
-            f"{MUSICBRAINZ_API}/recording",
+            f"{MUSICBRAINZ_API}/recording/",
             params={
                 "query": query,
                 "fmt": "json",
@@ -538,7 +538,7 @@ def _lookup_missing_metadata(
                 result.source = "musicbrainz"
             if mb.get("date") and not date:
                 try:
-                    date = int(mb["date"])
+                    date = mb["date"][:4]
                     result.date_added = True
                     result.source = "musicbrainz"
                 except (ValueError, TypeError):
@@ -567,7 +567,7 @@ def _apply_changes(track, result: EnrichmentResult) -> None:
         track.genre = result._lookup_genre
 
     if hasattr(result, '_lookup_date') and result._lookup_date:
-        track.date = result._lookup_date
+        track.date = str(result._lookup_date)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
