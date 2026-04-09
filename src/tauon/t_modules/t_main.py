@@ -232,6 +232,7 @@ from tauon.t_modules.t_extra import (  # noqa: E402
 )
 from tauon.t_modules.t_guitar_chords import GuitarChords  # noqa: E402
 from tauon.t_modules.t_jellyfin import Jellyfin  # noqa: E402
+from tauon.t_modules.t_listen_history import QueueSource, get_global_history  # noqa: E402
 from tauon.t_modules.t_lyrics import genius, get_lrclib_challenge, lyric_sources, uses_scraping  # noqa: E402
 from tauon.t_modules.t_nowplaying_macos import MacNowPlayingHelper  # noqa: E402
 from tauon.t_modules.t_phazor import Cachement, LibreSpot, get_phazor_path, phazor_exists, player4  # noqa: E402
@@ -1935,6 +1936,10 @@ class PlayerCtl:
 		self.radio_playlist_viewing = self.bag.radio_playlist_viewing
 		self.tag_history: dict[str, dict[str, str]] = {}
 
+		# Listen history tracker
+		self.listen_history = get_global_history(tauon.user_directory)
+		self.listen_history.enabled = getattr(self.prefs, 'listen_history_enable', True)
+
 		self.commit: int | None = None
 		self.spot_playing = False
 
@@ -3000,6 +3005,17 @@ class PlayerCtl:
 		if update_gui:
 			self.render_playlist()
 
+		# ── Listen History ─────────────────────────────────────────
+		if self.listen_history.enabled:
+			target = self.playing_object()
+			if target:
+				# Detect similarity radio playlist by title prefix
+				current_pl = self.multi_playlist[self.active_playlist_playing] if self.active_playlist_playing < len(self.multi_playlist) else None
+				if current_pl and current_pl.title and current_pl.title.startswith("Similar to:"):
+					self.listen_history.set_queue_source(QueueSource.SIMILARITY_RADIO)
+				self.listen_history.log_play(target)
+		# ────────────────────────────────────────────────────────────
+
 		if self.lfm_scrobbler.a_sc:
 			self.lfm_scrobbler.a_sc = False
 			self.a_time = 0
@@ -3617,6 +3633,14 @@ class PlayerCtl:
 			# Sync enabled state from preferences (in case it changed in UI)
 			self.tauon.autoplay.enabled = getattr(self.tauon.prefs, 'autoplay_enable', False)
 			if self.tauon.autoplay.should_trigger_autoplay():
+				# Tag queue source for listen history
+				current = self.playing_object()
+				if current and self.tauon.prefs.listen_history_enable:
+					self.listen_history.set_queue_source(
+						QueueSource.AUTOPLAY,
+						seed_track_id=current.index,
+						seed_title=f"{current.artist} - {current.title}"
+					)
 				queued = self.tauon.autoplay.trigger_autoplay()
 				if queued > 0:
 					self.tauon.show_message(f"Autoplay: queued {queued} similar tracks", mode="info")

@@ -389,6 +389,9 @@ class Prefs:
 	autoplay_use_library: bool = True
 	autoplay_threshold: int = 2  # Trigger when < N tracks left
 
+	# Listen history tracking
+	listen_history_enable: bool = True  # Enable listening history logging
+
 	artist_list_sort_mode = "alpha"
 
 	phazor_device_selected = "Default"
