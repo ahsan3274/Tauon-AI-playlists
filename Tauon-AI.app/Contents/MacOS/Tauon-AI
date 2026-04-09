@@ -1,0 +1,12 @@
+#!/bin/bash
+# Tauon AI Launcher — runs inside .app bundle
+# Key: exec replaces the shell process with Python, inheriting the .app's role
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
+cd "$SCRIPT_DIR"
+
+# Set environment so Python inherits the .app's process role
+export PYTHONOPTIMIZE=0
+
+# exec replaces this shell process with Python — crucial for RunningBoard
+exec ./venv/bin/python src/tauon "$@"

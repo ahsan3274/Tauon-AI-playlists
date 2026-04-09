@@ -126,7 +126,46 @@ class AutoplayManager:
         self.pctl = tauon.pctl
         self.last_trigger_time = 0
         self.enabled = False
-        
+        # Cached library features — invalidated on library change
+        self._library_cache: dict | None = None
+        self._library_cache_size: int = 0
+
+    def _is_cache_valid(self) -> bool:
+        """Check if library cache is still valid."""
+        return (
+            self._library_cache is not None
+            and len(self.pctl.master_library) == self._library_cache_size
+        )
+
+    def _build_library_cache(self) -> dict:
+        """Extract features from entire library (cached for performance)."""
+        result = {}
+        for tid, tr in self.pctl.master_library.items():
+            bpm = getattr(tr, 'bpm', 0) or 0
+            if not bpm:
+                bpm = getattr(tr, 'misc', {}).get('bpm', 0) or 0
+
+            result[tid] = {
+                "id": tid,
+                "artist": getattr(tr, "artist", "").lower(),
+                "title": getattr(tr, "title", ""),
+                "genre": getattr(tr, "genre", "").lower(),
+                "year": getattr(tr, "date", 0) or 0,
+                "duration": getattr(tr, "length", 0),
+                "bpm": bpm,
+                "parent_folder_path": getattr(tr, "parent_folder_path", ""),
+            }
+        self._library_cache = result
+        self._library_cache_size = len(self.pctl.master_library)
+        log.info(f"Autoplay: rebuilt library cache ({len(result)} tracks)")
+        return result
+
+    def _get_all_library_tracks(self) -> dict:
+        """Get all tracks from library as dict (cached)."""
+        if not self._is_cache_valid():
+            return self._build_library_cache()
+        return self._library_cache
+
     def should_trigger_autoplay(self) -> bool:
         """Check if conditions are right to trigger autoplay."""
         # Check if enabled
@@ -249,28 +288,7 @@ class AutoplayManager:
             queued += 1
         
         return queued
-    
-    def _get_all_library_tracks(self) -> dict:
-        """Get all tracks from library as dict."""
-        result = {}
-        for tid, tr in self.pctl.master_library.items():
-            # Extract BPM from tags if available
-            bpm = getattr(tr, 'bpm', 0) or 0
-            if not bpm:
-                bpm = getattr(tr, 'misc', {}).get('bpm', 0) or 0
-            
-            result[tid] = {
-                "id": tid,
-                "artist": getattr(tr, "artist", "").lower(),
-                "title": getattr(tr, "title", ""),
-                "genre": getattr(tr, "genre", "").lower(),
-                "year": getattr(tr, "date", 0) or 0,
-                "duration": getattr(tr, "length", 0),
-                "bpm": bpm,
-                "parent_folder_path": getattr(tr, "parent_folder_path", ""),
-            }
-        return result
-    
+
     def _add_to_queue(self, track_id: int) -> None:
         """Add track ID to queue."""
         self.pctl.track_queue.append(track_id)

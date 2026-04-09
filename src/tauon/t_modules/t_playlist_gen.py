@@ -107,25 +107,20 @@ def _fuzzy_artist_match(artist_name: str, artist_index: dict[str, list[int]]) ->
 # Helper: Build track list from Tauon's master_library
 # ─────────────────────────────────────────────────────────────────────────────
 
-def _library_snapshot(pctl, master_library, star_store) -> list[dict]:
+def _library_snapshot(pctl, master_library) -> list[dict]:
     """
-    Walk Tauon's master_library and collect every track that is actually
-    referenced in at least one playlist (avoids orphaned entries).
+    Walk Tauon's master_library and collect ALL tracks.
+
+    Previously filtered by playlist membership, which excluded
+    fresh imports until manually added to a playlist.
 
     Returns a list of dicts:
       {id, path, title, artist, album, genre, year, play_count, duration}
     """
-    # Collect all track IDs that appear in any playlist
-    referenced: set[int] = set()
-    for pl in pctl.multi_playlist:
-        if hasattr(pl, 'playlist_ids'):
-            referenced.update(pl.playlist_ids)
-        elif hasattr(pl, 'playlist'):
-            referenced.update(pl.playlist)
-
     tracks = []
     for tid, tr in master_library.items():
-        if tid not in referenced:
+        # Skip non-audio entries (network streams, etc.)
+        if not getattr(tr, "fullpath", "") and not getattr(tr, "filename", ""):
             continue
 
         sc = getattr(tr, 'play_count', 0) or 0
@@ -265,7 +260,7 @@ def generate_lastfm(
             lm_api_key = "b048411511a3191008fee11a34f4e233"
 
         similar = _lastfm_similar(seed_artist, lm_api_key, depth)
-        tracks = _library_snapshot(pctl, master_library, star_store)
+        tracks = _library_snapshot(pctl, master_library)
 
         # FIXED: Use fuzzy matching to include collaboration tracks
         matches = [t for t in tracks if _artist_matches(t["artist"], similar)]
@@ -350,7 +345,7 @@ def generate_llm(
         if notify_fn:
             notify_fn("AI Playlists: analysing library…")
 
-        tracks = _library_snapshot(pctl, master_library, star_store)
+        tracks = _library_snapshot(pctl, master_library)
 
         # Build artist → sample titles index
         artist_samples: dict[str, list[str]] = defaultdict(list)
@@ -526,7 +521,7 @@ def _get_metadata_features(track: dict) -> dict:
     bpm = getattr(track, 'bpm', 0) or 0
     if not bpm:
         bpm = getattr(track, 'misc', {}).get('bpm', 0) or 0
-    
+
     # Encode genre as numeric feature
     genre = getattr(track, 'genre', '').lower()
     genre_map = {
@@ -539,10 +534,10 @@ def _get_metadata_features(track: dict) -> dict:
         if g in genre:
             genre_code = code
             break
-    
+
     # Get year/era
     year = getattr(track, 'date', 0) or 0
-    
+
     return {
         "bpm": bpm,
         "genre": genre_code,
@@ -583,7 +578,7 @@ def generate_audio(
             log.error(f"Audio clustering missing dependencies: {e}")
             return
 
-        tracks = _library_snapshot(pctl, master_library, star_store)
+        tracks = _library_snapshot(pctl, master_library)
         if not tracks:
             if notify_fn:
                 notify_fn("Audio Cluster: no tracks found in library")

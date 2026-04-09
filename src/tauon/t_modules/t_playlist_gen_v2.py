@@ -590,17 +590,21 @@ def _get_track_features(pctl, track: dict, prefs=None, use_cache: bool = True) -
                     log.debug(f"Cache hit for {track.get('filename', 'unknown')}")
                     return cached_features
 
+    # Build a shallow copy of the track dict for enrichment
+    # so we don't mutate the original master_library entry in-place.
+    track_copy = dict(track)
+
     # Enrich metadata if genre missing
-    if not track.get('genre'):
-        enrich_track_metadata(track, prefs)
+    if not track_copy.get('genre'):
+        enrich_track_metadata(track_copy, prefs)
 
     # Try Spotify features
-    spotify_features = _get_spotify_features(pctl, track)
+    spotify_features = _get_spotify_features(pctl, track_copy)
     if spotify_features:
         return spotify_features
 
     # Calculate from metadata
-    features = get_metadata_features(track)
+    features = get_metadata_features(track_copy)
 
     # Cache the result (if cache is available)
     if use_cache:
@@ -608,7 +612,7 @@ def _get_track_features(pctl, track: dict, prefs=None, use_cache: bool = True) -
         if user_dir:
             cache = get_audio_features_cache(user_dir)
             if cache:
-                cache.set_features(track, features, save_immediately=False)
+                cache.set_features(track_copy, features, save_immediately=False)
 
     return features
 
@@ -631,7 +635,7 @@ def generate_mood_playlists(
                 return
             
             # Get tracks
-            tracks = _library_snapshot(pctl, master_library, star_store)
+            tracks = _library_snapshot(pctl, master_library)
             if not tracks:
                 if notify_fn: notify_fn("Error: No tracks found")
                 return
@@ -731,7 +735,7 @@ def generate_energy_playlists(
     def _run():
         try:
             # Get tracks
-            tracks = _library_snapshot(pctl, master_library, star_store)
+            tracks = _library_snapshot(pctl, master_library)
             if not tracks:
                 if notify_fn: notify_fn("Error: No tracks found")
                 return
@@ -861,7 +865,7 @@ def generate_similarity_radio(
         if notify_fn:
             notify_fn("Similarity Radio: analysing library…")
 
-        tracks = _library_snapshot(pctl, master_library, star_store)
+        tracks = _library_snapshot(pctl, master_library)
         if not tracks:
             if notify_fn:
                 notify_fn("Similarity Radio: no tracks found")
@@ -1067,27 +1071,30 @@ def generate_artist_radio(
             if notify_fn:
                 notify_fn(f"Artist Radio: found {len(similar_artists)} similar artists…")
             
-            # Find tracks in library by these artists
-            tracks = _library_snapshot(pctl, master_library, star_store)
+            # Find tracks in library by these similar artists
+            tracks = _library_snapshot(pctl, master_library)
+
+            # Build regex patterns with word boundaries for safe matching
+            artist_patterns = []
+            for similar in similar_artists:
+                similar = similar.strip()
+                if not similar or len(similar) < 2:
+                    continue
+                # Escape regex special chars, then add word boundaries
+                escaped = re.escape(similar)
+                artist_patterns.append((similar, re.compile(r'\b' + escaped + r'\b', re.IGNORECASE)))
 
             chosen = []
             seen_ids = set()
 
             for t in tracks:
-                track_artist = t.get("artist", "").lower().strip()
-                
-                # Check if track artist matches any similar artist
-                # Use stricter matching to avoid false positives
-                for similar in similar_artists:
-                    similar = similar.strip()
-                    # Direct match or contained match (but not substring of common words)
-                    if track_artist == similar or (similar in track_artist and len(similar) > 3):
-                        if t["id"] not in seen_ids:
-                            chosen.append(t["id"])
-                            seen_ids.add(t["id"])
-                        break
-                    # Also check reverse (track artist contained in similar)
-                    elif track_artist in similar and len(track_artist) > 3:
+                track_artist = t.get("artist", "").strip()
+                if not track_artist:
+                    continue
+
+                # Check if track artist matches any similar artist via word boundary
+                for _name, pattern in artist_patterns:
+                    if pattern.search(track_artist):
                         if t["id"] not in seen_ids:
                             chosen.append(t["id"])
                             seen_ids.add(t["id"])
@@ -1136,7 +1143,7 @@ def generate_decade_playlists(
         if notify_fn:
             notify_fn("Decade Playlists: organizing library by era…")
         
-        tracks = _library_snapshot(pctl, master_library, star_store)
+        tracks = _library_snapshot(pctl, master_library)
         if not tracks:
             if notify_fn:
                 notify_fn("Decade Playlists: no tracks found")
@@ -1212,7 +1219,7 @@ def generate_genre_clusters(
         if notify_fn:
             notify_fn("Genre Clusters: analysing library audio features…")
 
-        tracks = _library_snapshot(pctl, master_library, star_store)
+        tracks = _library_snapshot(pctl, master_library)
         if not tracks:
             if notify_fn:
                 notify_fn("Genre Clusters: no tracks found")

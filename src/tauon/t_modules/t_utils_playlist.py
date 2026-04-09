@@ -22,7 +22,7 @@ log = logging.getLogger("t_utils_playlist")
 # Core Helpers
 # ─────────────────────────────────────────────────────────────────────────────
 
-def get_library_tracks(pctl, master_library, star_store) -> list[dict]:
+def get_library_tracks(pctl, master_library) -> list[dict]:
     """
     Get all tracks from library.
 
