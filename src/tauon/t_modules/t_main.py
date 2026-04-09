@@ -49914,6 +49914,7 @@ def main(holder: Holder) -> None:
 			t_meta_enrich_batch.auto_enrich_on_startup(
 				master_library=pctl.master_library,
 				notify_fn=tauon.show_message,
+				save_state_fn=tauon.save_state,
 			)
 		except Exception:
 			logging.exception("Auto-enrichment startup failed")

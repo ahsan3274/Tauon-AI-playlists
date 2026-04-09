@@ -520,9 +520,7 @@ def enrich_library(
         if not dry_run and result.changed:
             _apply_changes(track, result)
             new_processed.add(tid)
-        elif not dry_run:
-            # Even if nothing changed, mark as processed so we don't retry
-            new_processed.add(tid)
+        # Don't mark unchanged tracks as processed - they should be retried next time
 
         results.append(result)
 
@@ -615,6 +613,10 @@ def _lookup_missing_metadata(
     result._lookup_genre = genre
     result._lookup_date = date
 
+    # Mark as changed if we found new metadata
+    if result.genre_added or result.date_added:
+        result.changed = True
+
 
 def _apply_changes(track, result: EnrichmentResult) -> None:
     """Step 3: Apply enriched metadata to the track object."""
@@ -679,6 +681,7 @@ def run_enrichment_ui(
 def auto_enrich_on_startup(
     master_library: dict,
     notify_fn=None,
+    save_state_fn=None,
 ) -> None:
     """
     Run enrichment automatically on startup — silently in background.
@@ -711,11 +714,15 @@ def auto_enrich_on_startup(
         genres_added = sum(1 for r in results if r.genre_added)
         filenames_fixed = sum(1 for r in results if r.source == "filename")
 
+        # Persist changes to disk
+        if changed > 0 and save_state_fn:
+            save_state_fn()
+
         if notify_fn and changed > 0:
             msg = f"Auto-enrichment: {changed} tracks updated ({genres_added} genres, {filenames_fixed} name fixes)"
             notify_fn(msg)
         elif notify_fn:
-            notify_fn(f"Auto-enrichment complete: {remaining - len(results)}/{total} tracks processed")
+            notify_fn(f"Auto-enrichment complete: {changed}/{remaining} tracks enriched")
 
     import threading
     threading.Thread(target=_run, daemon=True).start()
