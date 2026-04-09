@@ -406,6 +406,142 @@ def lookup_musicbrainz(artist: str, title: str) -> Optional[dict]:
         return None
 
 
+def lookup_musicbrainz_batch(artists: list[str], titles: list[str]) -> list[Optional[dict]]:
+    """
+    Batch query MusicBrainz for multiple recordings at once.
+
+    Uses a single search query with multiple OR conditions.
+    Returns list of results matching input order.
+
+    Args:
+        artists: List of artist names
+        titles: List of track titles (same length as artists)
+
+    Returns:
+        List of dicts with genre/date/album, or None for failed lookups.
+    """
+    if not artists or not titles:
+        return []
+
+    # Build batch query: search for all recordings at once
+    # MusicBrainz doesn't support true batch search, but we can use a single
+    # query with multiple terms. However, the API limits query length, so we
+    # batch in groups of 10.
+    BATCH_SIZE = 10
+    results = [None] * len(artists)
+
+    for batch_start in range(0, len(artists), BATCH_SIZE):
+        batch_end = min(batch_start + BATCH_SIZE, len(artists))
+        batch_artists = artists[batch_start:batch_end]
+        batch_titles = titles[batch_start:batch_end]
+
+        # Build query: "recording:(title1 OR title2 OR ...) AND artist:(artist1 OR artist2 OR ...)"
+        # This is more efficient than individual queries
+        recording_terms = " OR ".join(f'"{t}"' for t in batch_titles if t)
+        artist_terms = " OR ".join(f'"{a}"' for a in batch_artists if a)
+
+        if not recording_terms or not artist_terms:
+            continue
+
+        query = f'recording:({recording_terms}) AND artist:({artist_terms})'
+
+        try:
+            resp = requests.get(
+                f"{MUSICBRAINZ_API}/recording/",
+                params={
+                    "query": query,
+                    "fmt": "json",
+                    "limit": batch_end - batch_start * 5,  # Get multiple results per track
+                },
+                headers={"User-Agent": MUSICBRAINZ_APP},
+                timeout=15,
+            )
+
+            if resp.status_code == 200:
+                data = resp.json()
+                recordings = data.get("recordings", [])
+
+                # Match results back to input tracks
+                for i, (artist, title) in enumerate(zip(batch_artists, batch_titles)):
+                    if not artist or not title:
+                        continue
+
+                    # Find matching recording
+                    for rec in recordings:
+                        rec_artist = rec.get("artist-credit", [{}])[0].get("name", "").lower()
+                        rec_title = rec.get("title", "").lower()
+
+                        if (artist.lower() in rec_artist or rec_artist in artist.lower()) and \
+                           (title.lower() in rec_title or rec_title in title.lower()):
+                            result = {"genre": None, "date": None, "album": None}
+
+                            releases = rec.get("releases", [])
+                            if releases:
+                                rel = releases[0]
+                                result["date"] = rel.get("date", "")[:4] or None
+                                result["album"] = rel.get("title", "")
+
+                            tags = rec.get("tags", [])
+                            if tags:
+                                tags.sort(key=lambda t: -t.get("count", 0))
+                                result["genre"] = tags[0].get("name", "").lower()
+
+                            results[batch_start + i] = result
+                            break
+
+            time.sleep(REQUEST_DELAY)
+
+        except Exception as e:
+            log.warning(f"MusicBrainz batch lookup failed: {e}")
+
+    return results
+
+
+def lookup_musicbrainz_artist(artist: str) -> Optional[dict]:
+    """
+    Query MusicBrainz for artist metadata (genre/tags).
+
+    Returns dict with: genre, or None if not found.
+    """
+    if not artist:
+        return None
+
+    try:
+        resp = requests.get(
+            f"{MUSICBRAINZ_API}/artist/",
+            params={
+                "query": f'artist:"{artist}"',
+                "fmt": "json",
+                "limit": 1,
+            },
+            headers={"User-Agent": MUSICBRAINZ_APP},
+            timeout=10,
+        )
+
+        if resp.status_code != 200:
+            return None
+
+        data = resp.json()
+        artists = data.get("artists", [])
+        if not artists:
+            return None
+
+        artist_data = artists[0]
+        result = {"genre": None}
+
+        tags = artist_data.get("tags", [])
+        if tags:
+            tags.sort(key=lambda t: -t.get("count", 0))
+            result["genre"] = tags[0].get("name", "").lower()
+
+        time.sleep(REQUEST_DELAY)
+        return result
+
+    except Exception as e:
+        log.warning(f"MusicBrainz artist lookup failed for '{artist}': {e}")
+        return None
+
+
 def lookup_lastfm_genre(artist: str) -> Optional[str]:
     """Get top genre for an artist from Last.fm."""
     if not artist:
@@ -482,6 +618,12 @@ def enrich_library(
     """
     Enrich metadata for all tracks in the library.
 
+    Uses batch API queries for efficiency:
+    1. Parse all filenames (instant, offline)
+    2. Batch query MusicBrainz for artist genres (one call per unique artist)
+    3. Batch query MusicBrainz for recording dates (10 tracks per call)
+    4. Batch query Last.fm for artist genres (one call per unique artist)
+
     Args:
         skip_cached: If True, skip tracks already in the enrichment cache.
     """
@@ -489,16 +631,18 @@ def enrich_library(
     cached_ids = _load_enrichment_cache() if skip_cached else set()
     new_processed = set()
 
-    results = []
+    # Phase 1: Parse all filenames and collect unique artists
+    results: dict[int, EnrichmentResult] = {}
+    unique_artists: set[str] = set()
+    tracks_to_enrich: list[tuple[int, object]] = []  # (tid, track)
+
     total = len(master_library)
     skipped = 0
 
     if progress_cb:
-        remaining = total - len(cached_ids) if skip_cached else total
         progress_cb(f"Scanning library… {len(cached_ids)} tracks already enriched", 0, total)
 
     for tid, track in master_library.items():
-        # Skip already-enriched tracks
         if skip_cached and tid in cached_ids:
             skipped += 1
             continue
@@ -509,43 +653,133 @@ def enrich_library(
         result.title_after = result.title_before
         result.artist_after = result.artist_before
 
-        # Step 1: Parse artist/title from filename or combined title
+        # Step 1: Parse artist/title from filename
         _parse_and_fix_title(track, result)
+        results[tid] = result
+        tracks_to_enrich.append((tid, track))
 
-        # Step 2: Look up missing genre/date via APIs
-        if use_musicbrainz or use_lastfm:
-            _lookup_missing_metadata(track, result, use_musicbrainz, use_lastfm)
+        # Collect unique artists for batch API queries
+        artist = result.artist_after or getattr(track, "artist", "") or ""
+        if artist and artist.lower() not in _UNKNOWN_ARTISTS:
+            unique_artists.add(artist)
 
-        # Step 3: Apply changes (unless dry run)
+    if progress_cb:
+        progress_cb(
+            f"Parsed {len(results)} tracks, found {len(unique_artists)} unique artists",
+            total, total
+        )
+
+    # Phase 2: Batch query MusicBrainz for artist genres
+    artist_genres: dict[str, Optional[str]] = {}
+    if use_musicbrainz and unique_artists:
+        artist_list = list(unique_artists)
+        if progress_cb:
+            progress_cb(f"Looking up {len(artist_list)} artists on MusicBrainz…", total, total)
+
+        for i, artist in enumerate(artist_list):
+            mb_artist = lookup_musicbrainz_artist(artist)
+            if mb_artist and mb_artist.get("genre"):
+                artist_genres[artist] = mb_artist["genre"]
+
+            if progress_cb and (i + 1) % 5 == 0:
+                progress_cb(f"Artist lookup: {i + 1}/{len(artist_list)}", total, total)
+
+    # Phase 3: Batch query MusicBrainz for recording dates
+    recording_dates: dict[tuple[str, str], Optional[str]] = {}  # (artist, title) -> date
+    if use_musicbrainz and tracks_to_enrich:
+        # Group tracks by (artist, title) for batch queries
+        batches: list[tuple[list[str], list[str]]] = []
+        current_batch_artists: list[str] = []
+        current_batch_titles: list[str] = []
+
+        for tid, track in tracks_to_enrich:
+            result = results[tid]
+            artist = result.artist_after or getattr(track, "artist", "") or ""
+            title = result.title_after or getattr(track, "title", "") or ""
+
+            if artist and title:
+                current_batch_artists.append(artist)
+                current_batch_titles.append(title)
+
+                if len(current_batch_artists) >= 10:
+                    batches.append((current_batch_artists[:], current_batch_titles[:]))
+                    current_batch_artists = []
+                    current_batch_titles = []
+
+        if current_batch_artists:
+            batches.append((current_batch_artists, current_batch_titles))
+
+        if progress_cb and batches:
+            progress_cb(f"Looking up {len(batches)} recording batches on MusicBrainz…", total, total)
+
+        for i, (batch_artists, batch_titles) in enumerate(batches):
+            batch_results = lookup_musicbrainz_batch(batch_artists, batch_titles)
+            for (artist, title), mb_result in zip(zip(batch_artists, batch_titles), batch_results):
+                if mb_result and mb_result.get("date"):
+                    recording_dates[(artist, title)] = mb_result["date"]
+                elif mb_result and mb_result.get("genre") and (artist, title) not in recording_dates:
+                    # Store genre too if we got it
+                    recording_dates[(artist, title)] = mb_result["genre"]
+
+            if progress_cb and (i + 1) % 2 == 0:
+                progress_cb(f"Recording lookup: batch {i + 1}/{len(batches)}", total, total)
+
+    # Phase 4: Apply enriched metadata to tracks
+    for tid, track in tracks_to_enrich:
+        result = results[tid]
+        artist = result.artist_after or getattr(track, "artist", "") or ""
+        title = result.title_after or getattr(track, "title", "") or ""
+
+        # Apply artist genre from MusicBrainz
+        genre = getattr(track, "genre", "") or ""
+        if not genre and artist in artist_genres:
+            result.genre_added = True
+            result.source = "musicbrainz"
+            result._lookup_genre = artist_genres[artist]
+            result.changed = True
+
+        # Apply recording date from MusicBrainz
+        date = getattr(track, "date", 0) or 0
+        if (artist, title) in recording_dates:
+            date_val = recording_dates[(artist, title)]
+            if date_val and not date:
+                try:
+                    result._lookup_date = str(date_val)[:4]
+                    result.date_added = True
+                    result.source = "musicbrainz"
+                    result.changed = True
+                except (ValueError, TypeError):
+                    pass
+
+        # Fallback: Last.fm genre lookup (only if MusicBrainz didn't find genre)
+        if not genre and use_lastfm and artist and artist not in artist_genres:
+            lf_genre = lookup_lastfm_genre(artist)
+            if lf_genre:
+                result.genre_added = True
+                result.source = "lastfm"
+                result._lookup_genre = lf_genre
+                result.changed = True
+
+        # Apply changes
         if not dry_run and result.changed:
             _apply_changes(track, result)
             new_processed.add(tid)
-        # Don't mark unchanged tracks as processed - they should be retried next time
-
-        results.append(result)
-
-        if progress_cb and len(results) % 10 == 0:
-            changed_count = sum(1 for r in results if r.changed)
-            progress_cb(
-                f"Enriched: {skipped + len(results)}/{total} "
-                f"({changed_count} changed, {skipped} cached)",
-                skipped + len(results), total
-            )
 
     # Save cache
     if not dry_run and new_processed:
         all_processed = cached_ids | new_processed
         _save_enrichment_cache(all_processed)
 
+    result_list = list(results.values())
     if progress_cb:
-        changed = sum(1 for r in results if r.changed)
+        changed = sum(1 for r in result_list if r.changed)
         progress_cb(
-            f"Complete: {changed}/{len(results)} tracks changed "
+            f"Complete: {changed}/{len(result_list)} tracks changed "
             f"({skipped} already cached)",
             total, total
         )
 
-    return results
+    return result_list
 
 
 def _parse_and_fix_title(track, result: EnrichmentResult) -> None:
