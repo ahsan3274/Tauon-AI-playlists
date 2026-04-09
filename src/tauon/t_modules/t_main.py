@@ -49257,11 +49257,9 @@ def main(holder: Holder) -> None:
 				"""Transition from this track's mood to a different mood."""
 				if not ref or not ref.track_id:
 					return
-				# Cycle through transition targets
 				seed = pctl.master_library.get(ref.track_id)
 				if not seed:
 					return
-				# Use last.fm target if available, otherwise pick from transitions
 				targets = ["Peacefulness", "Joyful", "Energy", "Nostalgia", "Wonder"]
 				idx = getattr(seed, 'play_count', 0) % len(targets)
 				target = targets[idx]
@@ -49283,32 +49281,45 @@ def main(holder: Holder) -> None:
 					notify_fn=_track_notify,
 				)
 
-			track_menu.add_to_sub(-1, MenuItem(_("🎭 Mood Match (same vibe)"), mood_match_track, pass_ref=True, icon=gui.heart_icon))
-			track_menu.add_to_sub(-1, MenuItem(("🌅 Mood Transition (shift vibe)"), mood_transition_track, pass_ref=True, icon=gui.filter_icon))
-			track_menu.add_to_sub(-1, MenuItem(("🔍 Discover Missing Moods"), discover_moods_library, icon=gui.info_icon))
+			track_menu.add(MenuItem("───", None))  # Separator
+			track_menu.add(MenuItem(_("🎭 Mood Match"), mood_match_track, pass_ref=True, icon=gui.heart_icon))
+			track_menu.add(MenuItem(_("🌅 Mood Transition"), mood_transition_track, pass_ref=True, icon=gui.filter_icon))
+			track_menu.add(MenuItem(_("🔍 Discover Missing Moods"), discover_moods_library, icon=gui.info_icon))
 		# ─────────────────────────────────────────────────────────────────────
 
-		track_menu.add_sub(_("Mood & Genre"), 200)
-		track_menu.add_to_sub(-1, MenuItem(_("Mood Playlists (8 moods)"), lambda ref: t_playlist_gen_v2.generate_mood_playlists(
-			pctl=pctl, master_library=pctl.master_library, star_store=pctl.star_store,
-			num_playlists=8, prefs=prefs, notify_fn=_track_notify) if _playlist_gen_v2_available else lambda: show_message("Audio recommender not available"), pass_ref=True, icon=gui.heart_icon))
-		track_menu.add_to_sub(-1, MenuItem(_("Energy Playlists"), lambda ref: t_playlist_gen_v2.generate_energy_playlists(
-			pctl=pctl, master_library=pctl.master_library, star_store=pctl.star_store,
-			num_levels=3, prefs=prefs, notify_fn=_track_notify) if _playlist_gen_v2_available else lambda: show_message("Audio recommender not available"), pass_ref=True, icon=gui.filter_icon))
-		track_menu.add_to_sub(-1, MenuItem(_("Genre Clusters"), lambda ref: t_playlist_gen_v2.generate_genre_clusters(
-			pctl=pctl, master_library=pctl.master_library, star_store=pctl.star_store,
-			n_clusters=8, prefs=prefs, notify_fn=_track_notify) if _playlist_gen_v2_available else lambda: show_message("Audio recommender not available"), pass_ref=True, icon=gui.filter_icon))
+	# ── Playlists submenu (all playlist generation in one place) ─────
+	track_menu.add_sub(_("Playlists"), 220)
 
-		track_menu.add_sub(_("Analysis"), 200)
-		track_menu.add_to_sub(-1, MenuItem(_("Decade Playlists"), lambda ref: t_playlist_gen_v2.generate_decade_playlists(
-			pctl=pctl, master_library=pctl.master_library, star_store=pctl.star_store,
-			notify_fn=_track_notify) if _playlist_gen_v2_available else lambda: show_message("Audio recommender not available"), pass_ref=True, icon=gui.info_icon))
-		track_menu.add_to_sub(-1, MenuItem(_("Show Mood Distribution"), show_mood_distribution, pass_ref=True, icon=gui.info_icon))
-		track_menu.add_to_sub(-1, MenuItem(_("Audio Feature Clusters"), lambda ref: t_playlist_gen.generate_audio(
-			pctl=pctl, master_library=pctl.master_library, star_store=pctl.star_store, n_clusters=5, notify_fn=_track_notify), pass_ref=True, icon=gui.filter_icon))
+	# Similarity & Artist Radio
+	track_menu.add_to_sub(-1, MenuItem(_("Similarity Radio (this track)"), lambda ref: t_playlist_gen_v2.generate_similarity_radio(
+		pctl=pctl, master_library=pctl.master_library, star_store=pctl.star_store,
+		seed_track_id=ref.track_id if ref else None, limit=50, prefs=prefs, notify_fn=_track_notify) if _playlist_gen_v2_available else lambda: show_message("Audio recommender not available"), pass_ref=True, icon=gui.radiorandom_icon))
+	track_menu.add_to_sub(-1, MenuItem(_("Artist Radio (Last.fm)"), lambda ref: t_playlist_gen_v2.generate_artist_radio(
+		pctl=pctl, master_library=pctl.master_library, star_store=pctl.star_store,
+		artist_name=getattr(pctl.master_library.get(ref.track_id), 'artist', '') if ref and ref.track_id else '', limit=50, prefs=prefs, notify_fn=_track_notify) if _playlist_gen_v2_available else lambda: show_message("Artist radio not available"), pass_ref=True, icon=gui.radiorandom_icon))
 
-		# Legacy options
-		track_menu.add_to_sub(-1, MenuItem(_("AI Mood Playlists (Claude/Local) [Legacy]"), gen_ai_from_track, pass_ref=True, icon=gui.info_icon))
+	# Mood & Genre playlists
+	track_menu.add_to_sub(-1, MenuItem(_("Mood Playlists (8 moods)"), lambda ref: t_playlist_gen_v2.generate_mood_playlists(
+		pctl=pctl, master_library=pctl.master_library, star_store=pctl.star_store,
+		num_playlists=8, prefs=prefs, notify_fn=_track_notify) if _playlist_gen_v2_available else lambda: show_message("Audio recommender not available"), pass_ref=True, icon=gui.heart_icon))
+	track_menu.add_to_sub(-1, MenuItem(_("Energy Playlists"), lambda ref: t_playlist_gen_v2.generate_energy_playlists(
+		pctl=pctl, master_library=pctl.master_library, star_store=pctl.star_store,
+		num_levels=3, prefs=prefs, notify_fn=_track_notify) if _playlist_gen_v2_available else lambda: show_message("Audio recommender not available"), pass_ref=True, icon=gui.filter_icon))
+	track_menu.add_to_sub(-1, MenuItem(_("Genre Clusters"), lambda ref: t_playlist_gen_v2.generate_genre_clusters(
+		pctl=pctl, master_library=pctl.master_library, star_store=pctl.star_store,
+		n_clusters=8, prefs=prefs, notify_fn=_track_notify) if _playlist_gen_v2_available else lambda: show_message("Audio recommender not available"), pass_ref=True, icon=gui.filter_icon))
+
+	# Analysis
+	track_menu.add_to_sub(-1, MenuItem(_("Decade Playlists"), lambda ref: t_playlist_gen_v2.generate_decade_playlists(
+		pctl=pctl, master_library=pctl.master_library, star_store=pctl.star_store,
+		notify_fn=_track_notify) if _playlist_gen_v2_available else lambda: show_message("Audio recommender not available"), pass_ref=True, icon=gui.info_icon))
+	track_menu.add_to_sub(-1, MenuItem(_("Show Mood Distribution"), show_mood_distribution, pass_ref=True, icon=gui.info_icon))
+	track_menu.add_to_sub(-1, MenuItem(_("Audio Feature Clusters"), lambda ref: t_playlist_gen.generate_audio(
+		pctl=pctl, master_library=pctl.master_library, star_store=pctl.star_store, n_clusters=5, notify_fn=_track_notify), pass_ref=True, icon=gui.filter_icon))
+
+	# Legacy
+	track_menu.add_to_sub(-1, MenuItem(_("AI Mood Playlists (Claude/Local) [Legacy]"), gen_ai_from_track, pass_ref=True, icon=gui.info_icon))
+	# ─────────────────────────────────────────────────────────────────────
 
 	track_menu.add_sub(_("Meta…"), 160)
 
