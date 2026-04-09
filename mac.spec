@@ -52,6 +52,7 @@ a = Analysis(
 	],
 	datas=[
 		(certifi.where(), "certifi"),
+		("src/tauon/assets/Assets.car", "."),
 		("src/tauon/assets", "assets"),
 		("locale", "locale"),
 		("src/tauon/theme", "theme"),
@@ -59,6 +60,9 @@ a = Analysis(
 		*nowplaying_datas,
 	],
 	hiddenimports=[
+		"AppKit",
+		"Foundation",
+		"objc",
 		"phazor",
 		"pylast",
 		# Zeroconf is hacked until this issue is resolved: https://github.com/pyinstaller/pyinstaller-hooks-contrib/issues/840
@@ -114,6 +118,7 @@ app = BUNDLE(
 	info_plist={
 		"CFBundleName": "Tauon",
 		"CFBundleDisplayName": "Tauon",
+		"CFBundleIconName": "tau",
 		"LSEnvironment": {
 			"LANG": "en_US.UTF-8",
 			"LC_CTYPE": "en_US.UTF-8",

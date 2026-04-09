@@ -100,3 +100,6 @@ Desktop.ini
 *.bak
 *.backup
 *.old
+android-deps
+.buildozer
+bin

@@ -8,6 +8,21 @@ A modern fork of [Tauon Music Box](https://github.com/Taiko2k/TauonMusicBox) wit
 
 ## ✨ Key Features
 
+### 🎶 Core Features
+
+  - Fast, comfortable and responsive UI.
+  - Support for **gapless playback**.
+  - Import tracks and create playlists by simple **drag and drop**.
+  - Supports most common codecs and tracker file types.
+  - Seamless support for CUE sheets.
+  - Stream music from your **PLEX**, **Jellyfin** or **Airsonic** server.
+  - Large album art and gallery browsing!
+  - Download cover art function.
+  - Keep track of play counts. Visualise these so you always know which tracks were your favorite.
+  - Shortcuts for searching artists on *Rate Your Music* and tracks on *Genius*.
+  - Built-in topchart generator.
+  - **Extract archives** and import your music downloads in **one click**! :zap:
+
 ### 🤖 AI Playlist Generation
 
 Generate intelligent playlists automatically:
@@ -30,7 +45,7 @@ Generate intelligent playlists automatically:
 ### 🔒 Privacy-First Design
 
 - ✅ **Autoplay**: Zero external API calls
-- ✅ **Mood Detection**: Uses local metadata/librosa only  
+- ✅ **Mood Detection**: Uses local metadata/librosa only
 - ✅ **Genre Clustering**: Offline audio analysis
 - ✅ **No Data Leaks**: Your listening history stays private
 
@@ -56,11 +71,15 @@ pip install -r requirements.txt
 python3 -m tauon
 ```
 
+<a href='https://flathub.org/apps/details/com.github.ahsan3274.tauon-ai'><img width='240' alt='Download on Flathub' src='https://dl.flathub.org/assets/badges/flathub-badge-en.png'/></a>
+
 ### Windows
 
 Not yet tested. Use WSL2 or contribute Windows support!
 
----
+There is also a 3rd party AppImage available [here](https://github.com/domesya/Tauon-AppImage).
+
+___
 
 ## 🎯 AI Features Guide
 
@@ -255,7 +274,7 @@ See [CHANGES_AND_PROGRESS.md](CHANGES_AND_PROGRESS.md) for detailed changelog.
 
 ## 📄 License
 
-**Original Tauon:** GPL-3.0  
+**Original Tauon:** GPL-3.0
 **AI Enhancements:** GPL-3.0 (derivative work)
 
 ### Icon Licenses
@@ -283,6 +302,6 @@ See [CHANGES_AND_PROGRESS.md](CHANGES_AND_PROGRESS.md) for detailed changelog.
 
 ---
 
-**Version:** 9.1.1-AI-v2.2  
-**Last Updated:** March 22, 2026  
+**Version:** 9.2.0-AI
+**Last Updated:** April 2026
 **Maintainer:** @ahsan3274

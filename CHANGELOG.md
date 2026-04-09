@@ -2,6 +2,21 @@
 Changelog
 ---------
 
+### v9.2.0
+
+ - Added inertial smooth scrolling option
+ - Redesigned settings box layout and style
+ - Removed trancode menu toggle
+ - Removed 'star' playcount display option
+ - Removed 'showcase only' background functions
+
+### v9.1.2
+
+ - Added menu bar support to for macOS
+ - Added zeroconf support to remote API
+ - Updated macOS icon to liquid glass style
+ - Fixed a possible memory leak in relation to text rendering
+
 ### v9.1.1
 
  - **Fixed** Shuffle lockdown missing exit button

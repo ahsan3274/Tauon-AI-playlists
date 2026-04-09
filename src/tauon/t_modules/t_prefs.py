@@ -43,7 +43,6 @@ class Prefs:
 	allow_remote: bool = False
 	expose_web:   bool = True
 
-	enable_transcode:    bool = True
 	show_rym:            bool = False
 	show_band:           bool = False
 	show_wiki:           bool = False
@@ -54,6 +53,7 @@ class Prefs:
 
 	update_title:  bool = False
 	scroll_enable: bool = True
+	smooth_scroll_enable: bool = False
 	break_enable:  bool = True
 
 	transcode_codec:   str = "opus"
@@ -65,7 +65,7 @@ class Prefs:
 	device_name: str = ""
 
 	cache_gallery:           bool = True
-	gallery_row_scroll:      bool = True
+	gallery_row_scroll:      bool = False
 	gallery_scroll_wheel_px: int = 90
 
 	playlist_font_size:  int = 15
@@ -117,6 +117,13 @@ class Prefs:
 	discord_active:     bool = False
 	discord_ready:      bool = False
 	disconnect_discord: bool = False
+	discord_presence_layout: str = "title_artist"
+	discord_card_layout: str = "title_artist"
+	discord_member_list_display: str = "song"
+	discord_clean_title:         bool = True
+	discord_fast_updates:        bool = True
+	discord_lastfm_button:       bool = True
+	discord_show_tauon_button:   bool = True
 
 	monitor_downloads: bool = True
 	extract_to_music:  bool = False
@@ -215,8 +222,6 @@ class Prefs:
 	auto_sort: bool = False
 
 	transcode_inplace: bool = False
-
-	bg_showcase_only: bool = False
 
 	lyrics_enables: list[str] = field(default_factory=list)
 
@@ -318,8 +323,6 @@ class Prefs:
 	radio_urls: list[RadioStation] = field(default_factory=list[RadioStation])
 
 	lyric_metadata_panel_top: bool = False
-	showcase_overlay_texture: bool = False
-
 	sync_target = ""
 	sync_deletes: bool = False
 	sync_playlist: int | None = None
