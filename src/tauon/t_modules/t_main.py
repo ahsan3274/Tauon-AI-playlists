@@ -6252,12 +6252,8 @@ class Tauon:
 		self.text_maloja_key: TextBox2 = TextBox2(tauon=self)
 
 		self.text_lastfm_gen_api_key: TextBox2 = TextBox2(tauon=self)
-		self.text_ai_gen_api_key:  TextBox2 = TextBox2(tauon=self)
 		self.text_lastfm_gen_seed: TextBox2 = TextBox2(tauon=self)
 		self.text_lastfm_gen_limit: TextBox2 = TextBox2(tauon=self)
-		self.text_ai_gen_moods:  TextBox2 = TextBox2(tauon=self)
-		self.text_local_llm_url:  TextBox2 = TextBox2(tauon=self)
-		self.text_local_llm_model: TextBox2 = TextBox2(tauon=self)
 		self.text_autoplay_threshold: TextBox2 = TextBox2(tauon=self)
 
 		self.text_sat_url:  TextBox2 = TextBox2(tauon=self)
@@ -27574,75 +27570,6 @@ class Over:
 			if self.coll(rect1) and (self.click or inp.level_2_right_click):
 				self.account_text_field = 13
 			ddt.bordered_rect(rect1, colours.box_background, colours.box_text_border, round(1 * gui.scale))
-			tauon.text_ai_gen_api_key.text = prefs.ai_gen_api_key
-			tauon.text_ai_gen_api_key.draw(
-				x + round(4 * gui.scale), y, colours.box_input_text, self.account_text_field == 13,
-				width=rect1[2] - 8 * gui.scale, click=self.click)
-			prefs.ai_gen_api_key = tauon.text_ai_gen_api_key.text.strip()
-
-			y += round(25 * gui.scale)
-			ddt.text((x + 0 * gui.scale, y), _("AI Mood Count"), colours.box_text_label, 11)
-			y += round(19 * gui.scale)
-			rect1 = (x + 0 * gui.scale, y, field_width, round(17 * gui.scale))
-			self.fields.add(rect1)
-			if self.coll(rect1) and (self.click or inp.level_2_right_click):
-				self.account_text_field = 14
-			ddt.bordered_rect(rect1, colours.box_background, colours.box_text_border, round(1 * gui.scale))
-			tauon.text_ai_gen_moods.text = str(prefs.ai_gen_moods)
-			tauon.text_ai_gen_moods.draw(
-				x + round(4 * gui.scale), y, colours.box_input_text, self.account_text_field == 14,
-				width=rect1[2] - 8 * gui.scale, click=self.click)
-			try:
-				prefs.ai_gen_moods = int(tauon.text_ai_gen_moods.text.strip())
-			except ValueError:
-				prefs.ai_gen_moods = 6
-
-			# ── Local LLM Settings ───────────────────────────────────
-			y += 35 * gui.scale
-			prefs.use_local_llm = self.toggle_square(
-				x, y, prefs.use_local_llm,
-				_("Use Local LLM (LM Studio, Ollama, etc.)"))
-			y += 28 * gui.scale
-
-			if prefs.use_local_llm:
-				ddt.text((x + 0 * gui.scale, y), _("Local LLM URL"), colours.box_text_label, 11)
-				y += round(19 * gui.scale)
-				rect1 = (x + 0 * gui.scale, y, field_width, round(17 * gui.scale))
-				self.fields.add(rect1)
-				if self.coll(rect1) and (self.click or inp.level_2_right_click):
-					self.account_text_field = 15
-				ddt.bordered_rect(rect1, colours.box_background, colours.box_text_border, round(1 * gui.scale))
-				tauon.text_local_llm_url.text = prefs.local_llm_url
-				tauon.text_local_llm_url.draw(
-					x + round(4 * gui.scale), y, colours.box_input_text, self.account_text_field == 15,
-					width=rect1[2] - 8 * gui.scale, click=self.click)
-				prefs.local_llm_url = tauon.text_local_llm_url.text.strip()
-
-				y += round(25 * gui.scale)
-				ddt.text((x + 0 * gui.scale, y), _("Model Name (optional)"), colours.box_text_label, 11)
-				y += round(19 * gui.scale)
-				rect1 = (x + 0 * gui.scale, y, field_width, round(17 * gui.scale))
-				self.fields.add(rect1)
-				if self.coll(rect1) and (self.click or inp.level_2_right_click):
-					self.account_text_field = 16
-				ddt.bordered_rect(rect1, colours.box_background, colours.box_text_border, round(1 * gui.scale))
-				tauon.text_local_llm_model.text = prefs.local_llm_model
-				tauon.text_local_llm_model.draw(
-					x + round(4 * gui.scale), y, colours.box_input_text, self.account_text_field == 16,
-					width=rect1[2] - 8 * gui.scale, click=self.click)
-				prefs.local_llm_model = tauon.text_local_llm_model.text.strip()
-
-				y += round(20 * gui.scale)
-				ddt.text(
-					(x + 0 * gui.scale, y, field_width, 300 * gui.scale),
-					_("Default: http://localhost:1234/v1/chat/completions (LM Studio)"),
-					colours.box_text_label, 11, max_w=300 * gui.scale)
-				y += round(15 * gui.scale)
-				ddt.text(
-					(x + 0 * gui.scale, y, field_width, 300 * gui.scale),
-					_("For Ollama: http://localhost:11434/v1/chat/completions"),
-					colours.box_text_label, 11, max_w=300 * gui.scale)
-
 		if self.account_view == 15:
 			# ── AI Playlist Generator Settings ──────────────────────────────
 			ddt.text((x, y), " AI Playlist Generator", colours.box_sub_text, 213)
@@ -48826,34 +48753,6 @@ def main(holder: Holder) -> None:
 				notify_fn=_notify,
 			)
 
-		def gen_ai_mood():
-			if prefs.use_local_llm:
-				if not prefs.local_llm_url:
-					show_message("Set local LLM URL in Settings → Accounts.")
-					return
-				t_playlist_gen.generate_llm(
-					pctl=pctl,
-					master_library=pctl.master_library,
-					star_store=pctl.star_store,
-					num_moods=prefs.ai_gen_moods,
-					notify_fn=_notify,
-					use_local_llm=True,
-					local_llm_url=prefs.local_llm_url,
-					local_model=prefs.local_llm_model,
-				)
-			else:
-				if not prefs.ai_gen_api_key:
-					show_message("Add your Anthropic API key in Settings → Accounts.")
-					return
-				t_playlist_gen.generate_llm(
-					pctl=pctl,
-					master_library=pctl.master_library,
-					star_store=pctl.star_store,
-					api_key=prefs.ai_gen_api_key,
-					num_moods=prefs.ai_gen_moods,
-					notify_fn=_notify,
-				)
-
 		def expand_library_youtube():
 			"""Download currently playing track from YouTube."""
 			current = pctl.playing_object()
@@ -49105,34 +49004,6 @@ def main(holder: Holder) -> None:
 				limit=prefs.lastfm_gen_limit,
 				notify_fn=_track_notify,
 			)
-
-		def gen_ai_from_track(ref):
-			if prefs.use_local_llm:
-				if not prefs.local_llm_url:
-					tauon.show_message("Set local LLM URL in Settings → Accounts.")
-					return
-				t_playlist_gen.generate_llm(
-					pctl=pctl,
-					master_library=pctl.master_library,
-					star_store=pctl.star_store,
-					num_moods=prefs.ai_gen_moods,
-					notify_fn=_track_notify,
-					use_local_llm=True,
-					local_llm_url=prefs.local_llm_url,
-					local_model=prefs.local_llm_model,
-				)
-			else:
-				if not prefs.ai_gen_api_key:
-					tauon.show_message("Add Anthropic API key in Settings → Accounts.")
-					return
-				t_playlist_gen.generate_llm(
-					pctl=pctl,
-					master_library=pctl.master_library,
-					star_store=pctl.star_store,
-					api_key=prefs.ai_gen_api_key,
-					num_moods=prefs.ai_gen_moods,
-					notify_fn=_track_notify,
-				)
 
 		# Reorganized track menu - cleaner structure with icons
 		track_menu.add_sub(_("Create Similar Playlist"), 200)
