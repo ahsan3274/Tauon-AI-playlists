@@ -129,6 +129,12 @@ except ImportError:
 	_yt_expand_available = False
 
 try:
+	from tauon.t_modules import t_spotify_discover
+	_discovery_available = True
+except ImportError:
+	_discovery_available = False
+
+try:
 	from tauon.t_modules import t_mood_visualizer
 	_mood_visualizer_available = True
 except ImportError:
@@ -48958,6 +48964,59 @@ def main(holder: Holder) -> None:
 
 		tab_menu.add_to_sub(0, MenuItem(_("📥 Expand Library (YouTube)"), expand_library_youtube, icon=gui.download_icon if hasattr(gui, 'download_icon') else None))
 		extra_tab_menu.add_to_sub(0, MenuItem(_("📥 Expand Library (YouTube)"), expand_library_youtube, icon=gui.download_icon if hasattr(gui, 'download_icon') else None))
+
+		# ── Magic Radio Discovery ──────────────────────────────────────────
+		if _discovery_available and _yt_expand_available:
+			def discover_similar_tracks():
+				"""Find similar tracks via Spotify/Last.fm, download missing ones."""
+				current = pctl.playing_object()
+				if not current:
+					tauon.show_message("Play a track first to discover similar music")
+					return
+				artist = getattr(current, 'artist', '')
+				title = getattr(current, 'title', '')
+				if not artist:
+					tauon.show_message("Unknown artist")
+					return
+
+				tauon.show_message(f"Discovering similar tracks to {artist}…")
+
+				def _run_discovery():
+					import threading
+					dm = t_spotify_discover.get_discovery_manager()
+					result = dm.discover(artist, title, pctl.master_library)
+
+					local_count = result["local_count"]
+					disc_count = result["discovery_count"]
+
+					if local_count > 0:
+						tauon.show_message(f"Found {local_count} similar tracks in your library ✓")
+
+					if disc_count > 0:
+						disc = result["discoveries"]
+						disc_names = [f"{d.artist} - {d.title}" for d in disc if d.title][:5]
+						if disc_names:
+							msg = f"🎵 {disc_count} new discoveries:\n" + "\n".join(disc_names)
+							if disc_count > 5:
+								msg += f"\n…and {disc_count - 5} more"
+							tauon.show_message(msg)
+
+							# Auto-download if enabled
+							if prefs.discovery_auto_download:
+								yt = t_yt_expand.get_expand_manager()
+								yt.start_session(
+									tracks=[(d.artist, d.title) for d in disc if d.title],
+									progress_cb=lambda s: tauon.show_message(
+										f"Downloading discoveries: {s.get('complete', 0)}/{s.get('total', 0)}"
+									),
+								)
+						else:
+							tauon.show_message(f"🎵 {disc_count} new artist discoveries (YouTube ready)")
+
+				threading.Thread(target=_run_discovery, daemon=True).start()
+
+			tab_menu.add_to_sub(0, MenuItem(_("🔍 Discover Similar Music"), discover_similar_tracks, icon=gui.download_icon if hasattr(gui, 'download_icon') else None))
+			extra_tab_menu.add_to_sub(0, MenuItem(_("🔍 Discover Similar Music"), discover_similar_tracks, icon=gui.download_icon if hasattr(gui, 'download_icon') else None))
 	# ─────────────────────────────────────────────────────────────────────
 
 	# Keep old LLM mood option for users who still want it (deprecated)

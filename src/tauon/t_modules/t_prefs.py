@@ -392,6 +392,11 @@ class Prefs:
 	# Listen history tracking
 	listen_history_enable: bool = True  # Enable listening history logging
 
+	# Discovery / Magic Radio expansion
+	discovery_auto_download: bool = False  # Auto-download missing discoveries via YouTube
+	discovery_source: str = "lastfm"  # "spotify" or "lastfm"
+	spotify_token: str = ""  # Spotify API bearer token (optional)
+
 	artist_list_sort_mode = "alpha"
 
 	phazor_device_selected = "Default"
