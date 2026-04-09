@@ -49121,6 +49121,59 @@ def main(holder: Holder) -> None:
 
 	track_menu.add(MenuItem(_("Show in Gallery"), tauon.menu_show_in_gal, pass_ref=True, show_test=tauon.test_show))
 
+	# ── Discover Similar Music (top-level track menu item) ───────
+	if _discovery_available and _yt_expand_available:
+		def discover_from_track_top(ref):
+			"""Discover and optionally download similar tracks."""
+			if not ref or not ref.track_id:
+				return
+			track = pctl.master_library.get(ref.track_id)
+			if not track:
+				tauon.show_message("Track not found")
+				return
+			artist = getattr(track, 'artist', '')
+			title = getattr(track, 'title', '')
+			if not artist:
+				tauon.show_message("Unknown artist")
+				return
+
+			tauon.show_message(f"Discovering similar tracks to {artist}…")
+
+			def _run():
+				dm = t_spotify_discover.get_discovery_manager()
+				result = dm.discover(artist, title, pctl.master_library)
+				local_count = result["local_count"]
+				disc_count = result["discovery_count"]
+
+				if local_count > 0:
+					tauon.show_message(f"Found {local_count} similar tracks already in your library ✓")
+
+				if disc_count > 0:
+					disc = result["discoveries"]
+					disc_names = [f"{d.artist} - {d.title}" for d in disc if d.title][:5]
+					if disc_names:
+						msg = f"🎵 {disc_count} new discoveries:\n" + "\n".join(disc_names)
+						if disc_count > 5:
+							msg += f"\n…and {disc_count - 5} more"
+						tauon.show_message(msg)
+
+						if prefs.discovery_auto_download:
+							yt = t_yt_expand.get_expand_manager()
+							yt.start_session(
+								tracks=[(d.artist, d.title) for d in disc if d.title],
+								progress_cb=lambda s: tauon.show_message(
+									f"Downloading: {s.get('complete', 0)}/{s.get('total', 0)}"
+								),
+							)
+					else:
+						tauon.show_message(f"🎵 {disc_count} new artist discoveries (YouTube ready)")
+
+			import threading
+			threading.Thread(target=_run, daemon=True).start()
+
+		track_menu.add(MenuItem(_("🔍 Discover Similar Music"), discover_from_track_top, pass_ref=True, icon=gui.download_icon if hasattr(gui, 'download_icon') else None))
+	# ─────────────────────────────────────────────────────────────
+
 	# ── AI Playlist Generator ────────────────────────────────────
 	if _playlist_gen_available:
 		def _track_notify(msg: str) -> None:
@@ -49179,59 +49232,6 @@ def main(holder: Holder) -> None:
 		track_menu.add_to_sub(-1, MenuItem(_("Artist Radio (Last.fm)"), lambda ref: t_playlist_gen_v2.generate_artist_radio(
 			pctl=pctl, master_library=pctl.master_library, star_store=pctl.star_store,
 			artist_name=getattr(pctl.master_library.get(ref.track_id), 'artist', '') if ref and ref.track_id else '', limit=50, prefs=prefs, notify_fn=_track_notify) if _playlist_gen_v2_available else lambda: show_message("Artist radio not available"), pass_ref=True, icon=gui.radiorandom_icon))
-
-		# ── Discover Similar Music (Spotify/Last.fm + YouTube download) ────
-		if _discovery_available and _yt_expand_available:
-			def discover_from_track(ref):
-				"""Discover and optionally download similar tracks."""
-				if not ref or not ref.track_id:
-					return
-				track = pctl.master_library.get(ref.track_id)
-				if not track:
-					tauon.show_message("Track not found")
-					return
-				artist = getattr(track, 'artist', '')
-				title = getattr(track, 'title', '')
-				if not artist:
-					tauon.show_message("Unknown artist")
-					return
-
-				tauon.show_message(f"Discovering similar tracks to {artist}…")
-
-				def _run():
-					dm = t_spotify_discover.get_discovery_manager()
-					result = dm.discover(artist, title, pctl.master_library)
-					local_count = result["local_count"]
-					disc_count = result["discovery_count"]
-
-					if local_count > 0:
-						tauon.show_message(f"Found {local_count} similar tracks already in your library ✓")
-
-					if disc_count > 0:
-						disc = result["discoveries"]
-						disc_names = [f"{d.artist} - {d.title}" for d in disc if d.title][:5]
-						if disc_names:
-							msg = f"🎵 {disc_count} new discoveries:\n" + "\n".join(disc_names)
-							if disc_count > 5:
-								msg += f"\n…and {disc_count - 5} more"
-							tauon.show_message(msg)
-
-							if prefs.discovery_auto_download:
-								yt = t_yt_expand.get_expand_manager()
-								yt.start_session(
-									tracks=[(d.artist, d.title) for d in disc if d.title],
-									progress_cb=lambda s: tauon.show_message(
-										f"Downloading: {s.get('complete', 0)}/{s.get('total', 0)}"
-									),
-								)
-						else:
-							tauon.show_message(f"🎵 {disc_count} new artist discoveries (YouTube ready)")
-
-				import threading
-				threading.Thread(target=_run, daemon=True).start()
-
-			track_menu.add_to_sub(-1, MenuItem(_("🔍 Discover Similar Music"), discover_from_track, pass_ref=True, icon=gui.download_icon if hasattr(gui, 'download_icon') else None))
-		# ─────────────────────────────────────────────────────────────────────
 
 		track_menu.add_sub(_("Mood & Genre"), 200)
 		track_menu.add_to_sub(-1, MenuItem(_("Mood Playlists (8 moods)"), lambda ref: t_playlist_gen_v2.generate_mood_playlists(
