@@ -1,307 +1,218 @@
-# 🎵 Tauon AI Playlists
+# Tauon AI Playlists
 
-**Privacy-first music player with intelligent playlist generation**
+**Tauon Music Box with intelligent playlist generation and library expansion**
 
-A modern fork of [Tauon Music Box](https://github.com/Taiko2k/TauonMusicBox) with advanced AI-powered playlist generation, smart autoplay, and complete privacy.
+A fork of [Tauon Music Box](https://github.com/Taiko2k/TauonMusicBox) that adds AI-powered playlist generation, smart discovery, and metadata enrichment — all using your existing library.
 
 ---
 
-## ✨ Key Features
+## What This Fork Adds
 
-### 🎶 Core Features
+### Smart Playlist Generation
 
-  - Fast, comfortable and responsive UI.
-  - Support for **gapless playback**.
-  - Import tracks and create playlists by simple **drag and drop**.
-  - Supports most common codecs and tracker file types.
-  - Seamless support for CUE sheets.
-  - Stream music from your **PLEX**, **Jellyfin** or **Airsonic** server.
-  - Large album art and gallery browsing!
-  - Download cover art function.
-  - Keep track of play counts. Visualise these so you always know which tracks were your favorite.
-  - Shortcuts for searching artists on *Rate Your Music* and tracks on *Genius*.
-  - Built-in topchart generator.
-  - **Extract archives** and import your music downloads in **one click**! :zap:
+Right-click any track → **Playlists** to generate:
 
-### 🤖 AI Playlist Generation
+- **Similarity Radio** — Finds tracks in your library that sound like the current track (genre, era, BPM, energy matching)
+- **Artist Radio** — Builds a playlist from similar artists via Last.fm
+- **Mood Playlists** — Clusters your entire library into 8 mood-based playlists using Thayer's model
+- **Energy Playlists** — High, medium, and low energy groupings
+- **Genre Clusters** — K-means clustering on audio features
+- **Decade Playlists** — Organize by era
 
-Generate intelligent playlists automatically:
+### Smart Mood Discovery
 
-- **Mood Playlists** - Cluster your library by mood (8 moods using Thayer's model)
-- **Genre Clusters** - Group music by audio characteristics (K-means clustering)
-- **Energy Playlists** - High/Medium/Low energy playlists
-- **Decade Playlists** - Organize by era (1960s, 1970s, etc.)
-- **Similarity Radio** - Find tracks similar to any song
-- **Artist Radio** - Similar artists via Last.fm
+Right-click any track for mood-aware discovery:
 
-### ▶️ Smart Autoplay
+- **Mood Match** — Find more tracks in the same mood as your current track
+- **Mood Transition** — Gradually shift from current mood to a target mood
+- **Discover Missing Moods** — Find moods in your library you've been under-listening to
 
-**Spotify-like autoplay** when your queue ends:
-- 100% offline - uses your library metadata only
-- Zero external API calls
+### Smart Autoplay
+
+When your queue runs out, Tauon automatically queues similar tracks:
+- 100% offline — uses your library metadata only
+- Zero external API calls required
 - Smart similarity matching (genre, era, BPM, energy)
 - Configurable trigger threshold
 
-### 🔒 Privacy-First Design
+### Metadata Enrichment
 
-- ✅ **Autoplay**: Zero external API calls
-- ✅ **Mood Detection**: Uses local metadata/librosa only
-- ✅ **Genre Clustering**: Offline audio analysis
-- ✅ **No Data Leaks**: Your listening history stays private
+Automatically fixes messy metadata on startup:
+- Parses artist/title from filenames like `Apocalypse_-_Cigarettes_After_Sex_128k.mp3`
+- Cleans noise from titles (Official Audio, HD, bitrate tags, etc.)
+- Looks up missing genre and release year from MusicBrainz and Last.fm
+- Batch API queries for efficiency (one call per unique artist, 10 tracks per recording lookup)
+- Runs silently on every startup — already-processed tracks are skipped
+
+### Listen History
+
+Every track play is logged with metadata, mood, and queue source:
+- Track what you're actually listening to
+- Analyze mood distribution over time
+- See which recommendation sources work best for you
+- CLI tool included: `python listen_stats.py`
+
+### YouTube Library Expansion
+
+Right-click a track → **Discover Similar Music** to find and download tracks you don't already own:
+- Queries Spotify/Last.fm for similar tracks
+- Cross-references against your library
+- Downloads missing tracks from YouTube via yt-dlp
+- Auto-imports into your library
 
 ---
 
-## 🚀 Quick Start
+## What Tauon Already Does
+
+All the core features from Tauon Music Box:
+
+- Fast, responsive UI with large album art and gallery browsing
+- Gapless playback
+- Drag-and-drop playlist creation
+- Support for most common codecs and tracker file types
+- CUE sheet support
+- Stream from **Plex**, **Jellyfin**, or **Airsonic**
+- Play count tracking with visualization
+- Search artists on Rate Your Music, tracks on Genius
+- Built-in topchart generator
+- One-click archive extraction and import
+- Lyrics fetching
+- Last.fm and ListenBrainz scrobbling
+- Chromecast support
+- Discord Rich Presence
+- Transfer playlists to Android devices
+
+---
+
+## Quick Start
 
 ### macOS
 
 ```bash
-# Clone and run
-cd /path/to/Tauon-AI-playlists
-./run-tauon-ai.sh
+cd ~/Documents/GitHub/Tauon-AI-playlists
+./venv/bin/python src/tauon
 ```
 
 ### Linux
 
 ```bash
-# Install dependencies
 pip install -r requirements.txt
-
-# Run
 python3 -m tauon
 ```
 
 <a href='https://flathub.org/apps/details/com.github.ahsan3274.tauon-ai'><img width='240' alt='Download on Flathub' src='https://dl.flathub.org/assets/badges/flathub-badge-en.png'/></a>
 
+**Dependencies for AI features:** `numpy` and `scikit-learn` are required for mood/genre clustering. Install them with `pip install numpy scikit-learn`.
+
+**Optional:** `yt-dlp` for YouTube library expansion (`brew install yt-dlp` on macOS).
+
 ### Windows
 
-Not yet tested. Use WSL2 or contribute Windows support!
+Not tested. Use WSL2 or help us add Windows support.
 
-There is also a 3rd party AppImage available [here](https://github.com/domesya/Tauon-AppImage).
+---
 
-___
-
-## 🎯 AI Features Guide
+## How the Features Work
 
 ### Mood Playlists
 
-**Right-click playlist tab → Audio Recommendations → Mood Playlists**
+Uses Thayer's 2D mood model (energy × valence) to classify every track in your library into one of 8 moods:
 
-Creates 8 playlists based on Thayer's mood model:
-- Exuberant, Energetic, Frantic, Happy
-- Contentment, Calm, Sad, Depression
+| Mood | Energy | Valence | Examples |
+|------|--------|---------|----------|
+| Joyful | High | High | Dance, pop, jubilant music |
+| Power | High | Mid | Rock anthems, hip-hop, driving electronic |
+| Tension | High | Low | Dark metal, aggressive EDM |
+| Wonder | Mid | High | Classical major, cinematic |
+| Transcendence | High | High | Epic trance, film scores |
+| Nostalgia | Low | Mid | Indie, folk, bittersweet |
+| Tenderness | Low | High | Soft ballads, acoustic love |
+| Peacefulness | Low | Mid | Ambient, meditation |
 
-**How it works:** Analyzes genre tags and BPM to estimate energy/valence
-
-### Genre Clusters
-
-**Right-click playlist tab → Audio Recommendations → Genre Clusters (Audio)**
-
-Uses K-means clustering on audio features:
-- Energy, acousticness, speechiness, danceability
-- Tempo, loudness, instrumentalness
-
-**Result:** 8 playlists with names like "Classical & Acoustic", "Rock & Metal", etc.
+Each track is scored against all 8 moods using Gaussian distance in 3D feature space (energy, valence, acousticness). The dominant mood wins. Playlists get unique evocative names each time — no two runs produce the same names.
 
 ### Similarity Radio
 
-**Right-click a track → Generate Playlist → Similarity Radio**
+Uses weighted Euclidean distance on audio features:
+- Energy (25%), valence (20%), danceability (15%), acousticness (15%), tempo (15%), loudness (10%)
+- Bonus for same genre and artist
+- Returns top 50 most similar tracks from your library
 
-Finds musically similar tracks based on:
-- Energy, valence, danceability, acousticness
-- Tempo, loudness
-- Genre/artist bonus matching
+### Metadata Enrichment
 
-### Artist Radio
+Runs automatically on startup with a cache to avoid reprocessing:
 
-**Right-click playlist tab → Last.fm Radio**
+1. **Filename parsing** (instant, offline) — Splits `Artist_-_Title.mp3` into proper artist/title fields
+2. **Artist genre lookup** (batch MusicBrainz → one call per unique artist)
+3. **Recording date lookup** (batch MusicBrainz → 10 tracks per call)
+4. **Fallback genre** (Last.fm for artists MusicBrainz doesn't have)
 
-Generates playlist from similar artists using Last.fm API.
-
-**Requires:** Last.fm API key (Settings → Accounts → AI Playlist Generator)
-
----
-
-## ⚙️ Configuration
-
-### Settings Location
-
-**Menu → Settings → Accounts → AI Playlist Generator**
-
-### Available Settings
-
-#### Last.fm Radio
-- **API Key** - Get from https://www.last.fm/api/account/create
-- **Seed Artist** - Leave blank for currently playing artist
-- **Track Limit** - Max tracks per playlist (default: 60)
-
-#### AI Mood Playlists
-- **Use Local LLM** - Privacy-friendly option (LM Studio/Ollama)
-- **LLM API URL** - http://localhost:1234/v1/chat/completions
-- **Number of Moods** - 2-12 playlists (default: 6)
-
-#### Autoplay
-- **Enable Autoplay** - Master toggle
-- **Trigger Threshold** - Queue when < N tracks left (default: 2)
+Changes are persisted to Tauon's database via `save_state()`.
 
 ---
 
-## 🧪 Testing
+## Settings
 
-See [TESTING_INSTRUCTIONS.md](TESTING_INSTRUCTIONS.md) for comprehensive testing guide.
+**Menu → Settings → Accounts** for API keys and playlist generator settings.
 
-**Quick Test:**
-```bash
-# Restart Tauon
-pkill -f tauon
-./run-tauon-ai.sh
+| Setting | What It Does |
+|---------|-------------|
+| **Last.fm API Key** | Required for Artist Radio. Get from [last.fm/api](https://www.last.fm/api/account/create) |
+| **Autoplay** | Enable/disable smart queue extension |
+| **Autoplay Threshold** | Queue when < N tracks left (default: 2) |
 
-# Test features:
-# 1. Right-click playlist tab → Audio Recommendations → Mood Playlists
-# 2. Check playlists have DIFFERENT names (not all "Energetic")
-# 3. Right-click tab → Show Mood Distribution (should show message box)
-```
+No API keys needed for mood playlists, similarity radio, genre clusters, decade playlists, or autoplay — these all work offline with your library metadata.
 
 ---
 
-## 📊 Performance
-
-| Feature | Speed (100 tracks) | Accuracy | Privacy |
-|---------|-------------------|----------|---------|
-| Mood Playlists | 2-5s | 94% | ✅ Offline |
-| Genre Clusters | 5-10s | 85% | ✅ Offline |
-| Decade Playlists | Instant | 100% | ✅ Offline |
-| Similarity Radio | <1s | 80% | ✅ Offline |
-| Artist Radio | 1-2s | 90% | ⚠️ Last.fm API |
-| Autoplay | <1s | 85% | ✅ Offline |
-
----
-
-## 🛠 Technical Details
-
-### Feature Extraction
-
-Three-tier fallback system:
-
-1. **Spotify Audio Features** (if authenticated)
-   - Most accurate, requires API access
-   - Coverage: ~30-50% of libraries
-
-2. **Metadata Estimation** (genre-based)
-   - Fast, privacy-friendly
-   - Estimates energy/valence from genre tags
-   - Coverage: ~80-90% of well-tagged libraries
-
-3. **Librosa Audio Analysis** (fallback)
-   - Analyzes first 30 seconds of audio
-   - Extracts energy, valence, danceability, etc.
-   - Coverage: ~95% (works for any audio file)
-
-### Mood Detection Algorithm
-
-Based on IEEE paper: "An Efficient Classification Algorithm for Music Mood Detection"
-
-**Features used:**
-- Intensity (energy, loudness)
-- Timbre (acousticness, spectral characteristics)
-- Rhythm (danceability, tempo)
-- Valence (musical positiveness)
-
-**Accuracy:** 94.44% for Energetic mood classification
-
----
-
-## 📁 Project Structure
+## Project Structure
 
 ```
 src/tauon/t_modules/
-├── t_playlist_gen.py       # Original + LLM (deprecated)
-├── t_playlist_gen_v2.py    # New audio features ✨
-├── t_utils_playlist.py     # Shared utilities
-├── t_mood_visualizer.py    # Mood distribution display
-├── t_autoplay.py           # Smart queue system
-├── t_menu_icons.py         # SVG icon mappings
-└── t_main.py               # Main UI integration
+├── t_playlist_gen.py        # Original playlist generation + Last.fm radio
+├── t_playlist_gen_v2.py     # Audio-based mood/genre/energy/decade/similarity
+├── t_autoplay.py            # Smart queue extension
+├── t_mood_match.py          # Mood match, transition, discover missing
+├── t_meta_enrich_batch.py   # Batch metadata enrichment
+├── t_yt_expand.py           # YouTube library expansion
+├── t_spotify_discover.py    # Spotify/Last.fm discovery
+├── t_listen_history.py      # Listen history tracking
+├── t_mood_visualizer.py     # Mood distribution display
+└── t_utils_playlist.py      # Shared utilities
 ```
 
 ---
 
-## 🤝 Contributing
+## Contributing
 
-### Areas Needing Help
+Help wanted:
 
-1. **Windows Testing** - Verify AI features work on Windows
-2. **More Icon Assets** - Add missing icons (coffee, moon, cloud)
-3. **Unit Tests** - Test coverage for playlist generation
-4. **Performance** - Parallel processing for large libraries
-5. **Documentation** - Translations, video tutorials
-
-### Development
-
-```bash
-# Clone repository
-git clone https://github.com/ahsan3274/Tauon-AI-playlists.git
-cd Tauon-AI-playlists
-
-# Create virtual environment
-python3 -m venv venv
-source venv/bin/activate  # Linux/macOS
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Run
-./run-tauon-ai.sh
-```
+1. **Windows testing** — Verify AI features work on Windows
+2. **Unit tests** — Test coverage for playlist generation
+3. **macOS app bundle** — Get past RunningBoard process isolation
+4. **Flatpak submission** — Complete the Flathub PR process
+5. **More mood names** — Expand the evocative playlist name generator
 
 ---
 
-## 📝 Changelog
+## License
 
-See [CHANGES_AND_PROGRESS.md](CHANGES_AND_PROGRESS.md) for detailed changelog.
-
-### Recent Fixes (March 22, 2026)
-
-- ✅ Fixed "Energetic" mood naming bug
-- ✅ Fixed mood distribution display
-- ✅ Fixed genre clusters all named "Hip Hop"
-- ✅ Fixed Artist Radio irrelevant tracks
-- ✅ Fixed macOS dock icon
-- ✅ Removed emoji from menu items
-- ✅ Added SVG icons to all menus
+**Original Tauon:** GPL-3.0 (Taiko2k)
+**This fork:** GPL-3.0 (derivative work)
 
 ---
 
-## 📄 License
+## Acknowledgments
 
-**Original Tauon:** GPL-3.0
-**AI Enhancements:** GPL-3.0 (derivative work)
-
-### Icon Licenses
-
-- **Feather Icons:** MIT License
-- **Material Design Icons:** Apache 2.0
-- **Tauon Assets:** GPL-3.0
-
----
-
-## 🙏 Acknowledgments
-
-- **Tauon Music Box** - Original music player by Taiko2k
-- **IEEE Paper** - "An Efficient Classification Algorithm for Music Mood Detection"
-- **Feather Icons** - Beautiful open-source icons
-- **Last.fm API** - Similar artist recommendations
-
----
-
-## 📞 Support
-
-- **Issues:** https://github.com/ahsan3274/Tauon-AI-playlists/issues
-- **Website:** https://ahsan-tariq-ai.xyz
-- **Original Tauon:** https://tauonmusicbox.rocks/
+- [Tauon Music Box](https://github.com/Taiko2k/TauonMusicBox) — The original player
+- IEEE paper: "An Efficient Classification Algorithm for Music Mood Detection"
+- Thayer's mood model — 2D arousal × valence framework
+- MusicBrainz — Free, open music metadata database
+- Last.fm — Artist similarity data
 
 ---
 
 **Version:** 9.2.0-AI
 **Last Updated:** April 2026
-**Maintainer:** @ahsan3274
+**Maintainer:** [@ahsan3274](https://github.com/ahsan3274)
+**Issues:** https://github.com/ahsan3274/Tauon-AI-playlists/issues
