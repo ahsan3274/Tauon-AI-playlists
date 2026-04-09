@@ -50018,6 +50018,17 @@ def main(holder: Holder) -> None:
 
 	render_heartbeat_timer = Timer()
 
+	# ── Auto-enrich library metadata on startup ────────────────────────────
+	if _meta_enrich_available:
+		try:
+			t_meta_enrich_batch.auto_enrich_on_startup(
+				master_library=pctl.master_library,
+				notify_fn=tauon.show_message,
+			)
+		except Exception:
+			logging.exception("Auto-enrichment startup failed")
+	# ───────────────────────────────────────────────────────────────────────
+
 	while pctl.running:
 		# bm.get('main')
 		# time.sleep(100)
