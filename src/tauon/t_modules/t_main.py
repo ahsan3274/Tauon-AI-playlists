@@ -123,6 +123,12 @@ except ImportError:
 	logging.warning("t_playlist_gen_v2 not found — new audio recommender disabled")
 
 try:
+	from tauon.t_modules import t_yt_expand
+	_yt_expand_available = True
+except ImportError:
+	_yt_expand_available = False
+
+try:
 	from tauon.t_modules import t_mood_visualizer
 	_mood_visualizer_available = True
 except ImportError:
@@ -48927,6 +48933,38 @@ def main(holder: Holder) -> None:
 
 	tab_menu.add_to_sub(0, MenuItem(_("✦ Similarity Radio"), gen_similarity_radio, icon=gui.radiorandom_icon))
 	extra_tab_menu.add_to_sub(0, MenuItem(_("✦ Similarity Radio"), gen_similarity_radio, icon=gui.radiorandom_icon))
+
+	# ── Expand Library from YouTube ──────────────────────────────────────
+	if _yt_expand_available:
+		def expand_library_youtube():
+			"""Open YouTube library expansion dialog."""
+			if not pctl.playing_state > 0:
+				show_message("Play a track first — recommendations based on current listening")
+				return
+			yt_expand = t_yt_expand.get_expand_manager()
+			# Get tracks similar to currently playing
+			current = pctl.playing_object()
+			if not current:
+				show_message("No track currently playing")
+				return
+			# Build recommendation: find similar tracks from library, then suggest YouTube search
+			show_message("Finding recommendations from YouTube…")
+			# For now, search for artist's similar tracks — user picks which to download
+			# Phase 1: Just search and show results
+			artist = getattr(current, 'artist', '')
+			if not artist:
+				show_message("Unknown artist")
+				return
+			yt_expand.start_session(
+				tracks=[(artist, getattr(current, 'title', ''))],
+				progress_cb=lambda status: show_message(
+					f"Downloading: {status.get('complete', 0)}/{status.get('total', 0)} complete"
+				),
+			)
+
+		tab_menu.add_to_sub(0, MenuItem(_("📥 Expand Library (YouTube)"), expand_library_youtube, icon=gui.download_icon if hasattr(gui, 'download_icon') else None))
+		extra_tab_menu.add_to_sub(0, MenuItem(_("📥 Expand Library (YouTube)"), expand_library_youtube, icon=gui.download_icon if hasattr(gui, 'download_icon') else None))
+	# ─────────────────────────────────────────────────────────────────────
 
 	# Keep old LLM mood option for users who still want it (deprecated)
 	# LLM functionality has been removed. Use audio-based playlists instead.
