@@ -148,6 +148,12 @@ except ImportError:
 	_mood_match_available = False
 
 try:
+	from tauon.t_modules import t_meta_enrich_batch
+	_meta_enrich_available = True
+except ImportError:
+	_meta_enrich_available = False
+
+try:
 	from tauon.t_modules import t_autoplay
 	_autoplay_available = True
 except ImportError:
@@ -49322,6 +49328,17 @@ def main(holder: Holder) -> None:
 	# ─────────────────────────────────────────────────────────────────────
 
 	track_menu.add_sub(_("Meta…"), 160)
+
+	if _meta_enrich_available:
+		def enrich_library_meta():
+			"""Enrich library metadata — parse artist from title, lookup genre/date."""
+			t_meta_enrich_batch.run_enrichment_ui(
+				master_library=pctl.master_library,
+				pctl=pctl,
+				prefs=prefs,
+				notify_fn=_track_notify,
+			)
+		track_menu.add_to_sub(-1, MenuItem(_("Enrich Library Metadata"), enrich_library_meta, icon=gui.info_icon))
 
 	track_menu.br()
 	# track_menu.add('Cut', s_cut, pass_ref=False)
