@@ -142,6 +142,12 @@ except ImportError:
 	logging.warning("t_mood_visualizer not found — mood visualization disabled")
 
 try:
+	from tauon.t_modules import t_mood_match
+	_mood_match_available = True
+except ImportError:
+	_mood_match_available = False
+
+try:
 	from tauon.t_modules import t_autoplay
 	_autoplay_available = True
 except ImportError:
@@ -49232,6 +49238,55 @@ def main(holder: Holder) -> None:
 		track_menu.add_to_sub(-1, MenuItem(_("Artist Radio (Last.fm)"), lambda ref: t_playlist_gen_v2.generate_artist_radio(
 			pctl=pctl, master_library=pctl.master_library, star_store=pctl.star_store,
 			artist_name=getattr(pctl.master_library.get(ref.track_id), 'artist', '') if ref and ref.track_id else '', limit=50, prefs=prefs, notify_fn=_track_notify) if _playlist_gen_v2_available else lambda: show_message("Artist radio not available"), pass_ref=True, icon=gui.radiorandom_icon))
+
+		# ── Smart Mood Discovery ───────────────────────────────────────────
+		if _mood_match_available:
+			def mood_match_track(ref):
+				"""Find more tracks in the same mood as this track."""
+				if not ref or not ref.track_id:
+					return
+				t_mood_match.mood_match(
+					seed_track_id=ref.track_id,
+					master_library=pctl.master_library,
+					pctl=pctl,
+					prefs=prefs,
+					notify_fn=_track_notify,
+				)
+
+			def mood_transition_track(ref):
+				"""Transition from this track's mood to a different mood."""
+				if not ref or not ref.track_id:
+					return
+				# Cycle through transition targets
+				seed = pctl.master_library.get(ref.track_id)
+				if not seed:
+					return
+				# Use last.fm target if available, otherwise pick from transitions
+				targets = ["Peacefulness", "Joyful", "Energy", "Nostalgia", "Wonder"]
+				idx = getattr(seed, 'play_count', 0) % len(targets)
+				target = targets[idx]
+				t_mood_match.mood_transition(
+					seed_track_id=ref.track_id,
+					target_mood=target,
+					master_library=pctl.master_library,
+					pctl=pctl,
+					prefs=prefs,
+					notify_fn=_track_notify,
+				)
+
+			def discover_moods_library():
+				"""Find moods you're missing in your library."""
+				t_mood_match.discover_moods(
+					master_library=pctl.master_library,
+					pctl=pctl,
+					prefs=prefs,
+					notify_fn=_track_notify,
+				)
+
+			track_menu.add_to_sub(-1, MenuItem(_("🎭 Mood Match (same vibe)"), mood_match_track, pass_ref=True, icon=gui.heart_icon))
+			track_menu.add_to_sub(-1, MenuItem(("🌅 Mood Transition (shift vibe)"), mood_transition_track, pass_ref=True, icon=gui.filter_icon))
+			track_menu.add_to_sub(-1, MenuItem(("🔍 Discover Missing Moods"), discover_moods_library, icon=gui.info_icon))
+		# ─────────────────────────────────────────────────────────────────────
 
 		track_menu.add_sub(_("Mood & Genre"), 200)
 		track_menu.add_to_sub(-1, MenuItem(_("Mood Playlists (8 moods)"), lambda ref: t_playlist_gen_v2.generate_mood_playlists(
