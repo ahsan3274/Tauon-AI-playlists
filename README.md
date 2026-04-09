@@ -1,8 +1,8 @@
 # Tauon AI Playlists
 
-**Tauon Music Box with intelligent playlist generation and library expansion**
+A fork of [Tauon Music Box](https://github.com/Taiko2k/TauonMusicBox) that adds intelligent playlist generation, smart music discovery, and automatic metadata enrichment — all using your existing library.
 
-A fork of [Tauon Music Box](https://github.com/Taiko2k/TauonMusicBox) that adds AI-powered playlist generation, smart discovery, and metadata enrichment — all using your existing library.
+**Privacy-first. No API keys required.** Everything works offline with your local metadata.
 
 ---
 
@@ -12,20 +12,24 @@ A fork of [Tauon Music Box](https://github.com/Taiko2k/TauonMusicBox) that adds 
 
 Right-click any track → **Playlists** to generate:
 
-- **Similarity Radio** — Finds tracks in your library that sound like the current track (genre, era, BPM, energy matching)
-- **Artist Radio** — Builds a playlist from similar artists via Last.fm
-- **Mood Playlists** — Clusters your entire library into 8 mood-based playlists using Thayer's model
-- **Energy Playlists** — High, medium, and low energy groupings
-- **Genre Clusters** — K-means clustering on audio features
-- **Decade Playlists** — Organize by era
+| Feature | What It Does |
+|---------|-------------|
+| **Similarity Radio** | Finds tracks in your library that sound like the current track (genre, era, BPM, energy matching) |
+| **Artist Radio** | Builds a playlist from similar artists via Last.fm |
+| **Mood Playlists** | Clusters your entire library into 8 mood-based playlists using Thayer's model |
+| **Energy Playlists** | High, medium, and low energy groupings |
+| **Genre Clusters** | K-means clustering on audio features |
+| **Decade Playlists** | Organize by era (1960s, 1970s, etc.) |
 
 ### Smart Mood Discovery
 
 Right-click any track for mood-aware discovery:
 
-- **Mood Match** — Find more tracks in the same mood as your current track
-- **Mood Transition** — Gradually shift from current mood to a target mood
-- **Discover Missing Moods** — Find moods in your library you've been under-listening to
+| Feature | What It Does |
+|---------|-------------|
+| **Mood Match** | Find more tracks in the same mood as your current track |
+| **Mood Transition** | Gradually shift from current mood to a target mood |
+| **Discover Missing Moods** | Find moods in your library you've been under-listening to |
 
 ### Smart Autoplay
 
@@ -43,6 +47,7 @@ Automatically fixes messy metadata on startup:
 - Looks up missing genre and release year from MusicBrainz and Last.fm
 - Batch API queries for efficiency (one call per unique artist, 10 tracks per recording lookup)
 - Runs silently on every startup — already-processed tracks are skipped
+- Changes persist across restarts
 
 ### Listen History
 
